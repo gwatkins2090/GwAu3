@@ -2,10 +2,15 @@
     RA Bot - Random Arenas Bot
     Migrated from test.au3 to use the new GwAu3 API
     FIXED VERSION - Based on working Froggy bot patterns
+    Now with GUI for visibility
 #ce ----------------------------------------------------------------------------
 
 #RequireAdmin
 #include "../../API/_GwAu3.au3"
+
+; GUI Options
+Opt("GUIOnEventMode", True)
+Opt("GUICloseOnESC", False)
 
 #Region Configuration
 ; Character name to connect to (empty string = first found GW process)
@@ -58,7 +63,7 @@ Global Const $CAST_DELAY = 250
 #EndRegion Configuration
 
 #Region Global Variables
-Global $g_b_Running = True
+Global $g_b_Running = False
 Global $g_b_Initialized = False
 Global $g_i_RoundCount = 0
 Global $g_a_Allies[1]
@@ -72,106 +77,220 @@ Global $g_i_LastSkillTime = 0
 Global Const $SKILL_AFTERCAST = 500
 #EndRegion Global Variables
 
+#Region GUI
+; Create main window
+Global $g_h_MainGui = GUICreate("RA Bot", 400, 350)
+
+; Status label
+Global $g_h_StatusLabel = GUICtrlCreateLabel("Status: Not Connected", 10, 10, 380, 20)
+GUICtrlSetFont(-1, 10, 800)
+
+; Character selection
+GUICtrlCreateLabel("Character:", 10, 40, 70, 20)
+Global $g_h_CharCombo = GUICtrlCreateCombo("", 80, 38, 200, 25)
+GUICtrlSetData($g_h_CharCombo, Scanner_GetLoggedCharNames())
+
+; Buttons
+Global $g_h_ConnectBtn = GUICtrlCreateButton("Connect", 290, 36, 100, 25)
+GUICtrlSetOnEvent($g_h_ConnectBtn, "OnConnectClick")
+
+Global $g_h_StartBtn = GUICtrlCreateButton("Start Bot", 10, 70, 100, 30)
+GUICtrlSetOnEvent($g_h_StartBtn, "OnStartClick")
+GUICtrlSetState($g_h_StartBtn, $GUI_DISABLE)
+
+Global $g_h_StopBtn = GUICtrlCreateButton("Stop Bot", 120, 70, 100, 30)
+GUICtrlSetOnEvent($g_h_StopBtn, "OnStopClick")
+GUICtrlSetState($g_h_StopBtn, $GUI_DISABLE)
+
+; Stats
+GUICtrlCreateGroup("Statistics", 10, 110, 380, 50)
+Global $g_h_RoundsLabel = GUICtrlCreateLabel("Rounds: 0", 20, 130, 100, 20)
+Global $g_h_WinsLabel = GUICtrlCreateLabel("State: Idle", 150, 130, 230, 20)
+GUICtrlCreateGroup("", -99, -99, 1, 1)
+
+; Log box
+GUICtrlCreateGroup("Log", 10, 165, 380, 175)
+Global $g_h_LogBox = GUICtrlCreateEdit("", 20, 185, 360, 145, BitOR($ES_READONLY, $ES_MULTILINE, $ES_AUTOVSCROLL, $WS_VSCROLL))
+GUICtrlSetFont($g_h_LogBox, 9, 400, 0, "Consolas")
+GUICtrlCreateGroup("", -99, -99, 1, 1)
+
+; Window close event
+GUISetOnEvent($GUI_EVENT_CLOSE, "OnGuiClose")
+
+; Show window
+GUISetState(@SW_SHOW)
+#EndRegion GUI
+
 #Region Logging
-; Simple console logging
 Func Out($a_s_Message)
-    ConsoleWrite("[" & @HOUR & ":" & @MIN & ":" & @SEC & "] " & $a_s_Message & @CRLF)
+    Local $l_s_Time = "[" & @HOUR & ":" & @MIN & ":" & @SEC & "] "
+    Local $l_s_Current = GUICtrlRead($g_h_LogBox)
+
+    ; Keep log from getting too long (last 50 lines)
+    Local $l_a_Lines = StringSplit($l_s_Current, @CRLF, 1)
+    If $l_a_Lines[0] > 50 Then
+        Local $l_s_New = ""
+        For $i = $l_a_Lines[0] - 49 To $l_a_Lines[0]
+            If $l_a_Lines[$i] <> "" Then $l_s_New &= $l_a_Lines[$i] & @CRLF
+        Next
+        $l_s_Current = $l_s_New
+    EndIf
+
+    GUICtrlSetData($g_h_LogBox, $l_s_Current & $l_s_Time & $a_s_Message & @CRLF)
+
+    ; Scroll to bottom
+    Local $h_Edit = GUICtrlGetHandle($g_h_LogBox)
+    _GUICtrlEdit_Scroll($h_Edit, $SB_SCROLLCARET)
+
+    ; Also write to console for debugging
+    ConsoleWrite($l_s_Time & $a_s_Message & @CRLF)
 EndFunc
 #EndRegion Logging
 
-#Region Main
-Func Main()
-    Out("RA Bot starting...")
+#Region GUI Event Handlers
+Func OnGuiClose()
+    $g_b_Running = False
+    Exit
+EndFunc
 
-    ; Initialize - handle empty character name like Froggy bot does
+Func OnConnectClick()
+    Out("Connecting to Guild Wars...")
+
+    Local $l_s_CharName = GUICtrlRead($g_h_CharCombo)
     Local $l_h_Window
-    If $g_s_CharName = "" Then
+
+    If $l_s_CharName = "" Then
         ; Use first found GW process
         Local $l_i_ProcessID = ProcessExists("gw.exe")
         If $l_i_ProcessID = 0 Then
-            Out("ERROR: Guild Wars is not running")
+            Out("ERROR: Guild Wars is not running!")
+            MsgBox(16, "Error", "Guild Wars is not running!")
             Return
         EndIf
+        Out("Found GW process: " & $l_i_ProcessID)
         $l_h_Window = Core_Initialize($l_i_ProcessID, True)
     Else
-        $l_h_Window = Core_Initialize($g_s_CharName, True)
+        Out("Connecting to character: " & $l_s_CharName)
+        $l_h_Window = Core_Initialize($l_s_CharName, True)
     EndIf
 
     If $l_h_Window = 0 Then
-        Out("ERROR: Failed to initialize - Could not connect to Guild Wars")
+        Out("ERROR: Failed to connect to Guild Wars!")
+        MsgBox(16, "Error", "Failed to connect to Guild Wars!")
         Return
     EndIf
 
     $g_b_Initialized = True
-    Out("RA Bot initialized successfully!")
-    Out("Character: " & Player_GetCharname())
+    Local $l_s_CharName = Player_GetCharname()
+    Out("Connected to: " & $l_s_CharName)
 
-    ; Main loop
-    While $g_b_Running
-        ; Wait for map to finish loading
-        If Map_GetInstanceInfo("IsLoading") Then
-            Out("Map is loading...")
-            While Map_GetInstanceInfo("IsLoading")
-                Sleep(100)
-            WEnd
-            Out("Map loaded!")
-            Sleep(1000) ; Give game time to stabilize
-        EndIf
+    GUICtrlSetData($g_h_StatusLabel, "Status: Connected - " & $l_s_CharName)
+    GUICtrlSetState($g_h_StartBtn, $GUI_ENABLE)
+    GUICtrlSetState($g_h_ConnectBtn, $GUI_DISABLE)
+    GUICtrlSetState($g_h_CharCombo, $GUI_DISABLE)
 
-        ; Check current state
-        Local $l_i_MapID = Map_GetMapID()
-        Local $l_b_IsOutpost = Map_GetInstanceInfo("IsOutpost")
-        Local $l_b_IsExplorable = Map_GetInstanceInfo("IsExplorable")
-
-        If $l_b_IsOutpost Then
-            Out("In outpost (Map: " & $l_i_MapID & ")")
-            Setup()
-        ElseIf $l_b_IsExplorable Then
-            ; We're in a match
-            Fight()
-        Else
-            Out("Unknown state - waiting...")
-            Sleep(1000)
-        EndIf
-
-        Sleep($LOOP_DELAY)
-    WEnd
-
-    Out("RA Bot stopped")
+    ; Show current location
+    Local $l_i_MapID = Map_GetMapID()
+    Out("Current Map ID: " & $l_i_MapID)
 EndFunc
 
-Main()
-#EndRegion Main
+Func OnStartClick()
+    If Not $g_b_Initialized Then
+        Out("ERROR: Not connected to Guild Wars!")
+        Return
+    EndIf
+
+    $g_b_Running = True
+    GUICtrlSetState($g_h_StartBtn, $GUI_DISABLE)
+    GUICtrlSetState($g_h_StopBtn, $GUI_ENABLE)
+    GUICtrlSetData($g_h_WinsLabel, "State: Running")
+    Out("Bot started!")
+EndFunc
+
+Func OnStopClick()
+    $g_b_Running = False
+    GUICtrlSetState($g_h_StartBtn, $GUI_ENABLE)
+    GUICtrlSetState($g_h_StopBtn, $GUI_DISABLE)
+    GUICtrlSetData($g_h_WinsLabel, "State: Stopped")
+    Out("Bot stopped!")
+EndFunc
+#EndRegion GUI Event Handlers
+
+#Region Main Loop
+; Main loop
+While True
+    If $g_b_Running Then
+        BotLoop()
+    EndIf
+    Sleep(50)
+WEnd
+
+Func BotLoop()
+    ; Check if still running
+    If Not $g_b_Running Then Return
+
+    ; Wait for map to finish loading
+    If Map_GetInstanceInfo("IsLoading") Then
+        GUICtrlSetData($g_h_WinsLabel, "State: Loading...")
+        While Map_GetInstanceInfo("IsLoading") And $g_b_Running
+            Sleep(100)
+        WEnd
+        If Not $g_b_Running Then Return
+        Out("Map loaded!")
+        Sleep(1000)
+    EndIf
+
+    ; Check current state
+    Local $l_i_MapID = Map_GetMapID()
+    Local $l_b_IsOutpost = Map_GetInstanceInfo("IsOutpost")
+    Local $l_b_IsExplorable = Map_GetInstanceInfo("IsExplorable")
+
+    If $l_b_IsOutpost Then
+        GUICtrlSetData($g_h_WinsLabel, "State: In Outpost (Map " & $l_i_MapID & ")")
+        Setup()
+    ElseIf $l_b_IsExplorable Then
+        GUICtrlSetData($g_h_WinsLabel, "State: In Match!")
+        Fight()
+    Else
+        GUICtrlSetData($g_h_WinsLabel, "State: Unknown")
+        Sleep(500)
+    EndIf
+EndFunc
+#EndRegion Main Loop
 
 #Region Setup Functions
 Func Setup()
+    If Not $g_b_Running Then Return
+
     Local $l_i_MapID = Map_GetMapID()
 
     ; Check if we need to travel to RA outpost
     If $l_i_MapID <> $MAP_RA_OUTPOST Then
-        Out("Traveling to Random Arenas (Map ID: " & $MAP_RA_OUTPOST & ")...")
+        Out("Traveling to Random Arenas...")
         Map_TravelTo($MAP_RA_OUTPOST)
 
         ; Wait for travel to complete
         Sleep(2000)
         Local $l_i_Timeout = 0
-        While Map_GetInstanceInfo("IsLoading") Or Map_GetMapID() <> $MAP_RA_OUTPOST
+        While (Map_GetInstanceInfo("IsLoading") Or Map_GetMapID() <> $MAP_RA_OUTPOST) And $g_b_Running
             Sleep(500)
             $l_i_Timeout += 500
             If $l_i_Timeout > 30000 Then
-                Out("ERROR: Travel timeout")
+                Out("ERROR: Travel timeout!")
                 Return
             EndIf
         WEnd
-        Out("Arrived at Random Arenas")
+
+        If Not $g_b_Running Then Return
+        Out("Arrived at Random Arenas!")
         Sleep(1000)
-        Return ; Return to main loop to re-check state
+        Return
     EndIf
 
     ; We're at RA outpost, enter a match
-    Out("Entering Random Arenas match...")
     $g_i_RoundCount += 1
-    Out("Match attempt #" & $g_i_RoundCount)
+    GUICtrlSetData($g_h_RoundsLabel, "Rounds: " & $g_i_RoundCount)
+    Out("Entering match #" & $g_i_RoundCount & "...")
 
     ; Enter the challenge
     Ui_EnterChallenge(False, True)
@@ -179,35 +298,36 @@ Func Setup()
     ; Wait for map to change (match to start)
     Local $l_i_Timeout = 0
     Local $l_i_InitialMap = Map_GetMapID()
-    While Map_GetMapID() = $l_i_InitialMap And Not Map_GetInstanceInfo("IsLoading")
+    While Map_GetMapID() = $l_i_InitialMap And Not Map_GetInstanceInfo("IsLoading") And $g_b_Running
         Sleep(500)
         $l_i_Timeout += 500
         If $l_i_Timeout > 30000 Then
-            Out("No match found after 30 seconds, will retry...")
-            Sleep(5000) ; Wait before retrying
+            Out("No match found, retrying in 5s...")
+            Sleep(5000)
             Return
         EndIf
     WEnd
 
-    Out("Match starting!")
+    If $g_b_Running Then Out("Match starting!")
 EndFunc
 #EndRegion Setup Functions
 
 #Region Combat Functions
 Func Fight()
+    If Not $g_b_Running Then Return
+
     ; Update agent info
     Update()
 
     ; Check if dead
     If Agent_GetAgentInfo(-2, "IsDead") Then
-        Out("Player is dead, waiting...")
         Sleep(500)
         Return
     EndIf
 
     ; Check if match ended (back in outpost)
     If Map_GetInstanceInfo("IsOutpost") Then
-        Out("Match ended, returning to setup")
+        Out("Match ended!")
         Return
     EndIf
 
