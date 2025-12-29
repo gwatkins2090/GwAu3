@@ -1974,8 +1974,8 @@ ElseIf $lModelID == 25416 Then
 	ElseIf IsRareMaterial($aItemPtr) Then
 		Return True
 
-	; Blue Salvage Armors (when checkbox enabled)
-	ElseIf $g_bPickupSalvageArmor And $lRarity == $RARITY_Blue Then
+	; Blue/Purple Salvage Armors (when checkbox enabled)
+	ElseIf $g_bPickupSalvageArmor And ($lRarity == $RARITY_Blue Or $lRarity == $RARITY_Purple) Then
 		Local $lItemType = Item_GetItemInfoByPtr($aItemPtr, "ItemType")
 		If $lItemType == $GC_I_TYPE_SALVAGE Then
 			$SalvageArmorGained += 1
