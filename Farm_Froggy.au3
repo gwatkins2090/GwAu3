@@ -1,8 +1,8 @@
 #cs
     Froggy Farm Bot
     =====================
-    Automatisation du farm Bogroot (Froggy)
-    Auteur : Sky
+    Bogroot (Froggy) Farm Automation
+    Author: Sky
 #ce
 
 #RequireAdmin
@@ -220,7 +220,7 @@ Func Setup()
         Sleep(2000)
     EndIf
 	        If CountSlots() < 5 Then
-            Out("Inventaire plein, arrêt du farm")
+            Out("Inventory full, stopping farm")
             Inventory()
         EndIf
     ; HardMode
@@ -328,9 +328,9 @@ Func TakeQuest()
     Sleep(250)
 
 
-    ; --- Cas 1 : Quête peut être récompensée ---
+    ; --- Case 1: Quest can be rewarded ---
     If Quest_GetQuestInfo($questID, "IsCompleted") Then
-        Out("Quest can be rewarded at Tekks, completing it ✅")
+        Out("Quest can be rewarded at Tekks, completing it")
         Agent_GoNPC(GetNearestNPCToAgent(-2))
         Sleep(500)
         HandleTekks("reward", $questID)
@@ -338,18 +338,18 @@ Func TakeQuest()
         TakeQuestNewRun()
         Re_Enter()
 
-    ; --- Cas 2 : Quête active mais incomplète ---
+    ; --- Case 2: Quest active but incomplete ---
     ElseIf Quest_GetQuestInfo($questID, "QuestID") Then
-        Out("Quest in progress at Tekks 📜")
-		    ; Déplacement vers Tekks
+        Out("Quest in progress at Tekks")
+		    ; Move to Tekks
     MoveTo(12509.11, 22640.00)
         Agent_GoNPC(GetNearestNPCToAgent(-2))
         Sleep(500)
-        Ui_Dialog(0x833905) ; Juste pour interagir/dialoguer
+        Ui_Dialog(0x833905) ; Just to interact/dialog
 
-    ; --- Cas 3 : Quête pas dans le journal ---
+    ; --- Case 3: Quest not in journal ---
     Else
-        Out("Quest not yet accepted at Tekks, taking it now 📜")
+        Out("Quest not yet accepted at Tekks, taking it now")
         Agent_GoNPC(GetNearestNPCToAgent(-2))
         Sleep(500)
         HandleTekks("take", $questID)
@@ -365,34 +365,34 @@ Func CombatLoop()
 
     While $BotRunning
         ; ===============================
-        ; Vérification inventaire
+        ; Inventory check
         ; ===============================
         If CountSlots() < 5 Then
-            Out("Inventaire plein, arrêt du farm")
+            Out("Inventory full, stopping farm")
             Inventory()
             ExitLoop
         EndIf
 
         ; ===============================
-        ; Gestion intelligente de la quête
+        ; Smart quest management
         ; ===============================
         Local $questID = 0x339
 
         If Quest_GetQuestInfo($questID, "IsCompleted") Then
-            ; Quête terminée → rendre, recharger, reprendre
+            ; Quest completed -> reward, reload, retake
             HandleTekks("reward", $questID)
             ReloadQuest()
             TakeQuestNewRun()
             Re_Enter()
 
         ElseIf Not Quest_GetQuestInfo($questID, "QuestID") Then
-            ; Quête absente du log → la reprendre
+            ; Quest missing from log -> retake it
             HandleTekks("take", $questID)
             Re_Enter()
         EndIf
 
         ; ===============================
-        ; Lancer un run complet
+        ; Start a complete run
         ; ===============================
         ResetRun()
         FirstStage()
@@ -400,11 +400,11 @@ Func CombatLoop()
         LastStep()
 
         ; ===============================
-        ; Comptabilisation du run
+        ; Run accounting
         ; ===============================
         If Agent_GetAgentInfo(-2, "IsDead") Then
             $FailCount += 1
-            Out("Run échoué !")
+            Out("Run failed!")
         Else
             $SuccessCount += 1
         EndIf
@@ -440,16 +440,16 @@ EndFunc ;==> EnterFirstRun
 
 
 Func FirstStage()
-    $RunTimer = TimerInit() ; ✅ Start chrono
-; === Vérifier si la quête est active ===
-    Local $questID = 0x339 ; ID de la quête
+    $RunTimer = TimerInit() ; Start timer
+; === Check if quest is active ===
+    Local $questID = 0x339 ; Quest ID
     If Not Quest_GetQuestInfo($questID, "QuestID") Then
-        ; Si la quête n'est pas active, on reprend la quête et réentre dans le donjon
+        ; If quest is not active, retake quest and re-enter dungeon
         RetakeQuest()
-        Return ; Sortir de la fonction pour éviter d'exécuter le reste avant de retourner dans le donjon
+        Return ; Exit function to avoid executing the rest before returning to dungeon
     EndIf
 
-; Si la quête est active, on continue normalement
+; If quest is active, continue normally
 If Map_GetMapID() <> $iBogrootGrowthsLevel1MapID Then
     Do
         Sleep(500)
@@ -516,7 +516,7 @@ DoStep(41, 7217, -17723, "aggro")
 MoveTo(7865, -19350)
 
 
-; Transition vers étage suivant
+; Transition to next floor
 Out("FirstStage : Check")
 Out("Travelling to Bogroot Growths - Level 2")
 $ChestFarmActive = False	
@@ -526,14 +526,14 @@ EndFunc ;==> FirstStage
 
 Func SecondStage()
 	Map_WaitMapLoading($iBogrootGrowthsLevel2MapID)
-; 🔑 Sécurité : si on a déjà changé de map, on sort direct
-; Si la quête est active, on continue normalement
+; Safety: if we already changed map, exit directly
+; If quest is active, continue normally
 If Map_GetMapID() <> $iBogrootGrowthsLevel2MapID Then
     Do
         Sleep(2000)
     Until Map_GetMapID() == $iBogrootGrowthsLevel2MapID
 EndIf
-Out("✅ Bogroot Growths - Level 2 : Uploaded !")
+Out("Bogroot Growths - Level 2: Loaded!")
     $ChestFarmActive = True
 	Out("Moving to Beacon of Droknar")
 DoStep(42, -11055, -5551, "move")
@@ -645,20 +645,20 @@ DoStep(99, 15116.40, -18733, "aggro")
 
     $ChestFarmActive = False
 
-    ; ✅ Calcul du temps du run
+    ; Calculate run time
     $RunTime = TimerDiff($RunTimer)
     $RunTimeCalc = Round($RunTime / 1000)
 
-    ; On stocke dans la liste des temps pour les stats
+    ; Store in time list for stats
     ReDim $AvgTime[UBound($AvgTime) + 1]
     $AvgTime[UBound($AvgTime) - 1] = $RunTimeCalc
 
-    ; Mise à jour des stats
+    ; Update stats
     CalculateFastestTime()
     CalculateAverageTime()
 
-    ; ✅ Affichage console + GUI
-    Out("Run réussi en " & $RunTimeCalc & "s")
+    ; Console + GUI display
+    Out("Run completed in " & $RunTimeCalc & "s")
     GUICtrlSetData($FastTimeLabel, "Fastest Time: " & $RunTimeMinutes & " min  " & $RunTimeSeconds & " sec")
     GUICtrlSetData($AvgTimeLabel, "Average Time: " & $AvgRunTimeMinutes & " min  " & $AvgRunTimeSeconds & " sec")
 
@@ -669,7 +669,7 @@ DoStep(99, 15116.40, -18733, "aggro")
 
 Local $questID = 0x339
 
-    MoveTo(14497.64, -17438) ; position approximative Tekks
+    MoveTo(14497.64, -17438) ; approximate Tekks position
     HandleTekks("reward", $questID)  ; 		
 	    Do
         Sleep(500)

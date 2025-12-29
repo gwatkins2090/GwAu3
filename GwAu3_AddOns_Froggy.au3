@@ -372,23 +372,23 @@ Func GetNearestSignpostToAgent($aAgentID = -2, $aRange = 1320, $aReturnMode = 1,
 EndFunc ;==>GetNearestSignpostToAgent
 
 ; ==========================
-; Vérifie si le bot est dans un état "safe" pour continuer
+; Check if bot is in a "safe" state to continue
 ; ==========================
 Func CheckSafeState()
-    ; ⚰️ Mort → stop direct
+    ; Dead -> stop directly
     If Agent_GetAgentInfo(-2, "IsDead") Then
-        Out("⚠️ CheckSafeState → Player is dead, abort function")
+        Out("CheckSafeState: Player is dead, abort function")
         Return False
     EndIf
 
-    ; 🚶 Pas en mouvement ET pas d’ennemis → inutile de continuer
+    ; Not moving AND no enemies -> no point continuing
     If Not Agent_GetAgentInfo(-2, "IsMoving") And _
        GetNumberOfFoesInRangeOfAgent(-2, 1500, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") = 0 Then
-        Out("⚠️ CheckSafeState → No movement and no enemies")
+        Out("CheckSafeState: No movement and no enemies")
         Return False
     EndIf
 
-    ; ✅ Tout va bien → on peut continuer
+    ; All good -> can continue
     Return True
 EndFunc
 
@@ -462,7 +462,7 @@ Func RegisterStep($step, $x, $y, $mode = "aggro")
 EndFunc
 
 
-; Tolérance pour identifier un sanctuaire (distance max)
+; Tolerance for identifying a shrine (max distance)
 Global Const $SANCTUAIRE_TOLERANCE = 600
 
 ; [MapID, Step, X, Y]
@@ -527,29 +527,29 @@ Func GetNearestSanctStep()
         EndIf
     Next
 
-    Return $bestStep ; -1 si aucun sanctuaire détecté
+    Return $bestStep ; -1 if no shrine detected
 EndFunc
 
 Func HandleResurrection($lastStep)
-    Out("⚰️ Mort détectée, attente de résurrection...")
+    Out("Death detected, waiting for resurrection...")
     Do
         Sleep(1000)
     Until Not Agent_GetAgentInfo(-2, "IsDead")
 
-    ; Coordonnées après rez
+    ; Coordinates after rez
     Local $px = Agent_GetAgentInfo(-2, "X")
     Local $py = Agent_GetAgentInfo(-2, "Y")
 
-    ; Vérifie si on est proche d’un sanctuaire connu
+    ; Check if we are near a known shrine
     Local $sanctStep = GetNearestSanctStep()
     If $sanctStep <> -1 Then
-        Out("💀 Résurrection à un sanctuaire → reprise depuis step " & $sanctStep)
+        Out("Resurrection at shrine -> resuming from step " & $sanctStep)
 		MoralUp()
 
-        ; Rejouer jusqu’au dernier step atteint avant la mort
+        ; Replay up to last step reached before death
         For $i = $sanctStep + 1 To $lastStep - 1
             Local $sx = $aSteps[$i][1], $sy = $aSteps[$i][2], $smode = $aSteps[$i][3]
-            Out("↪️ Rejoue step " & $i & " (" & $smode & ")")
+            Out("Replaying step " & $i & " (" & $smode & ")")
             If $smode = "aggro" Then
                 AggroMoveToEx($sx, $sy)
             Else
@@ -558,31 +558,31 @@ Func HandleResurrection($lastStep)
         Next
         $iCurrentStep = $lastStep - 1
     Else
-        Out("❌ Rez hors sanctuaire détecté (rez sur place) → on ne bouge pas")
+        Out("Rez outside shrine detected (rez in place) -> not moving")
 		MoralUp()
     EndIf
 EndFunc
 
 
 ; ----------------------
-; DoStep : fonction principale à utiliser dans ton script
-; - gère la résurrection / reprise des étapes manquantes
-; - utilise _DoStepInternal pour les mouvements et détours
+; DoStep: main function to use in your script
+; - handles resurrection / recovery of missed steps
+; - uses _DoStepInternal for movements and detours
 ; ----------------------
-; === Gestion mort ===
+; === Death management ===
 Func DoStep($step, $x, $y, $mode = "aggro")
     RegisterStep($step, $x, $y, $mode)
 
-    ; Timer de sécurité
+    ; Safety timer
     Local $stepTimer = TimerInit()
-    Local $customtimer = 20000 ; Timer à ajuster
+    Local $customtimer = 20000 ; Adjustable timer
 
-    ; ⚰️ Gestion mort immédiate
+    ; Immediate death handling
     If Agent_GetAgentInfo(-2, "IsDead") Then
         HandleDeath($step)
     EndIf
 
-    ; 🚶 Déplacement
+    ; Movement
     If $mode = "aggro" Then
         AggroMoveToEx($x, $y)
     Else
@@ -592,11 +592,11 @@ Func DoStep($step, $x, $y, $mode = "aggro")
     While True
         Sleep(10)
 
-        ; ⚰️ Mort en route
+        ; Death en route
         If Agent_GetAgentInfo(-2, "IsDead") Then
-            Out("⚰️ Mort détectée → attente de résurrection...")
-            HandleDeath($step) ; attend le rez proprement
-            Out("↪️ Reprise du step " & $step & " après résurrection")
+            Out("Death detected -> waiting for resurrection...")
+            HandleDeath($step) ; wait for rez properly
+            Out("Resuming step " & $step & " after resurrection")
             Return DoStep($step, $x, $y, $mode)
         EndIf
 
@@ -604,34 +604,34 @@ Func DoStep($step, $x, $y, $mode = "aggro")
         Local $curY = Agent_GetAgentInfo(-2, "Y")
         Local $distToDest = ComputeDistance($curX, $curY, $x, $y)
 
-        ; ✅ Step atteint
+        ; Step reached
         If $distToDest < 100 Then
-            Out("✅ Step " & $step & " atteint (" & $x & "," & $y & ")")
+            Out("Step " & $step & " reached (" & $x & "," & $y & ")")
             $iCurrentStep = $step
-            Return True ; 🔹 Step réussi
+            Return True ; Step success
         EndIf
 
-        ; 👊 En combat → reset timer
+        ; In combat -> reset timer
         If GetNumberOfFoesInRangeOfAgent(-2, 1000, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") > 0 Then
             $stepTimer = TimerInit()
         Else
-            ; ⏳ Timeout hors combat uniquement si perso IMMOBILE
+            ; Timeout only if character is IMMOBILE and out of combat
             If TimerDiff($stepTimer) > $customtimer Then
                 If Agent_GetAgentInfo(-2, "MoveX") = 0 And Agent_GetAgentInfo(-2, "MoveY") = 0 Then
-                    Out("⏳ Timeout au step " & $step & " → tentative de reprise intelligente")
-                    Return False ; 🔹 échec du step
+                    Out("Timeout at step " & $step & " -> attempting smart recovery")
+                    Return False ; Step failed
                 Else
-                    ; encore en mouvement → on reset le timer
+                    ; still moving -> reset timer
                     $stepTimer = TimerInit()
                 EndIf
             EndIf
         EndIf
     WEnd
 
-    ; === Loot éventuel
+    ; === Optional loot
     If $EnableChestFarm And $ChestFarmActive Then OpenNearbyChestsFiltered()
 
-    Return False ; 🔹 si jamais on sort de la boucle sans succès
+    Return False ; If we exit the loop without success
 EndFunc
 
 
@@ -640,7 +640,7 @@ Func TryRecoverStep($failedStep)
     Local $curX = Agent_GetAgentInfo(-2, "X")
     Local $curY = Agent_GetAgentInfo(-2, "Y")
 
-    ; 🔄 Cherche step voisin (-3 à +3)
+    ; Search neighboring step (-3 to +3)
     For $offset = -3 To 3
         If $offset = 0 Then ContinueLoop
         Local $testStep = $failedStep + $offset
@@ -651,19 +651,19 @@ Func TryRecoverStep($failedStep)
         Local $dist = ComputeDistance($curX, $curY, $sx, $sy)
 
         If $dist < 150 Then
-            Out("↪️ Reprise depuis step voisin " & $testStep)
+            Out("Resuming from neighboring step " & $testStep)
             $iCurrentStep = $testStep
             Return
         EndIf
     Next
 
-    ; 🕊️ Si aucun step voisin → reprise depuis sanctuaire
+    ; If no neighboring step -> resume from shrine
     Local $sanctStep = GetNearestSanctStep()
     If $sanctStep <> -1 Then
-        Out("💀 Reprise depuis sanctuaire → step " & $sanctStep)
+        Out("Resuming from shrine -> step " & $sanctStep)
         $iCurrentStep = $sanctStep
     Else
-        Out("❌ Aucun step voisin ni sanctuaire trouvé → retour au step précédent")
+        Out("No neighboring step or shrine found -> returning to previous step")
         $iCurrentStep = $failedStep - 1
         If $iCurrentStep < 1 Then $iCurrentStep = 1
     EndIf
@@ -672,21 +672,21 @@ EndFunc
 
 
 ; ===========================
-; Gestion de la mort
+; Death management
 ; ===========================
 Func HandleDeath($lastStep)
-    Out("⚰️ Mort détectée, attente de résurrection...")
+    Out("Death detected, waiting for resurrection...")
     Do
         Sleep(1000)
     Until Not Agent_GetAgentInfo(-2, "IsDead")
 
-    ; Vérifie si rez dans un sanctuaire
+    ; Check if rez at a shrine
     Local $rezStep = GetNearestSanctStep()
     If $rezStep <> -1 Then
-        Out("💀 Résurrection au sanctuaire (step " & $rezStep & ")")
+        Out("Resurrection at shrine (step " & $rezStep & ")")
         $iCurrentStep = $rezStep
     Else
-        ; Sinon on reprend au step le plus proche
+        ; Otherwise resume at closest step
         Local $px = Agent_GetAgentInfo(-2, "X")
         Local $py = Agent_GetAgentInfo(-2, "Y")
         Local $bestStep = 0, $bestDist = 999999
@@ -1937,7 +1937,7 @@ ElseIf $lModelID >= 1953 And $lModelID <= 1975 Then
 GUICtrlSetData($FroggyLabel, "Gold Items: " & $FroggyGained)	
 Return True
 
-; Objets violets → ignorés
+; Purple items -> ignored
 ElseIf $lRarity == $RARITY_Purple Then
     Return False
 
@@ -1946,9 +1946,9 @@ ElseIf $lModelID == $ITEM_ID_Lockpicks Then
     $LockpicksGained += 1
     Return True
 
-; Clé de boss
+; Boss key
 ElseIf $lModelID == 25416 Then
-    Out("Clé de boss ramassée !")
+    Out("Boss key picked up!")
     Return True
 
 
@@ -1960,17 +1960,17 @@ ElseIf $lModelID == 25416 Then
 	ElseIf $lModelID == $GC_I_MODELID_CC_SHARDS Then
 		Return True
 
-	; Trophies (when checkbox enabled) - Sentient Vine and Amphibian Tongue
-	ElseIf $g_bPickupTrophies And ($lModelID == $GC_I_MODELID_SENTIENT_VINE Or $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE) Then
+	; Trophies (when checkbox enabled) - Sentient Vine, Amphibian Tongue, Beetle Egg
+	ElseIf $g_bPickupTrophies And ($lModelID == $GC_I_MODELID_SENTIENT_VINE Or $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE Or $lModelID == 27066) Then
 		$TrophiesGained += 1
 		GUICtrlSetData($TrophiesLabel, "Trophies: " & $TrophiesGained)
 		Return True
 
-	; Pcons (event items, consommables divers)
+	; Pcons (event items, misc consumables)
 	ElseIf IsPcon($aItemPtr) Then
 		Return False
 
-	; Matériaux rares
+	; Rare materials
 	ElseIf IsRareMaterial($aItemPtr) Then
 		Return True
 
@@ -1985,7 +1985,7 @@ ElseIf $lModelID == 25416 Then
 
 	EndIf
 
-	; Tout le reste → ignoré
+	; Everything else -> ignored
 	Return False
 EndFunc   ;==> CanPickUp
 
