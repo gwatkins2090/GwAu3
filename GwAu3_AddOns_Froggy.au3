@@ -1501,7 +1501,17 @@ Func ToggleSalvageArmor()
         $g_bPickupSalvageArmor = False
         Out("Pickup Salvage Armors disabled")
     EndIf
-EndFunc	
+EndFunc
+
+Func ToggleTrophies()
+    If BitAND(GUICtrlRead($chkTrophies), $GUI_CHECKED) = $GUI_CHECKED Then
+        $g_bPickupTrophies = True
+        Out("Pickup Trophies enabled")
+    Else
+        $g_bPickupTrophies = False
+        Out("Pickup Trophies disabled")
+    EndIf
+EndFunc
 
 
 Func GetPartyDead()
@@ -1946,16 +1956,14 @@ ElseIf $lModelID == 25416 Then
 	ElseIf $lModelID == 22269 Then
 		Return True
 
-	; Sentient Vine
-	ElseIf $lModelID == $GC_I_MODELID_SENTIENT_VINE Then
-		Return True
-
-	; Amphibian Tongue
-	ElseIf $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE Then
-		Return True
-
 	; Candy Cane Shard
 	ElseIf $lModelID == $GC_I_MODELID_CC_SHARDS Then
+		Return True
+
+	; Trophies (when checkbox enabled) - Sentient Vine and Amphibian Tongue
+	ElseIf $g_bPickupTrophies And ($lModelID == $GC_I_MODELID_SENTIENT_VINE Or $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE) Then
+		$TrophiesGained += 1
+		GUICtrlSetData($TrophiesLabel, "Trophies: " & $TrophiesGained)
 		Return True
 
 	; Pcons (event items, consommables divers)
@@ -1967,9 +1975,11 @@ ElseIf $lModelID == 25416 Then
 		Return True
 
 	; Blue Salvage Armors (when checkbox enabled)
-	ElseIf $g_bPickupSalvageArmor Then
+	ElseIf $g_bPickupSalvageArmor And $lRarity == $RARITY_Blue Then
 		Local $lItemType = Item_GetItemInfoByPtr($aItemPtr, "ItemType")
-		If $lItemType == $GC_I_TYPE_SALVAGE And $lRarity == $RARITY_Blue Then
+		If $lItemType == $GC_I_TYPE_SALVAGE Then
+			$SalvageArmorGained += 1
+			GUICtrlSetData($SalvageLabel, "Salvage: " & $SalvageArmorGained)
 			Return True
 		EndIf
 

@@ -7,6 +7,8 @@ Global $LockpicksGained = 0
 Global $GoldItemsGained = 0
 Global $LuxonTitle = 0
 Global $FroggyGained = 0
+Global $SalvageArmorGained = 0
+Global $TrophiesGained = 0
 Global $RunTimer
 Global $RunTime
 Global $RunTimeCalc
@@ -17,7 +19,7 @@ Global $AvgRunTimeMinutes
 Global $AvgRunTimeSeconds
 Global $AvgTime[0]
 
-Global Const $mainGui =             GUICreate("Sky Froggy Farmer", 388, 500, 191, 124)
+Global Const $mainGui =             GUICreate("Sky Froggy Farmer", 388, 550, 191, 124)
 
 ; Buttons and Checkboxes and Characterselection
 Global Const $Fighter =             GUICtrlCreateLabel("Choose your Fighter", 8, 8, 114, 19)
@@ -38,110 +40,116 @@ Global Const $HardmodeCheckbox =    GUICtrlCreateCheckbox("HM", 20, 64, 41, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 									GUICtrlSetState(-1, $gui_checked)
 
-;Global Const $ResignGateTrickBox =  GUICtrlCreateCheckbox("Resign Gate Trick?", 81, 64, 119, 25)
-;                                    GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-
-;Global Const $DonateBox =           GUICtrlCreateCheckbox("Donate Faction?", 81, 92, 119, 25)
-;                                    GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-
-Global $chkChestFarm = GUICtrlCreateCheckbox("Open Chest with Lockpick", 20, 92, 200, 20)
+; Left column checkboxes
+Global $chkChestFarm = GUICtrlCreateCheckbox("Open Chest with Lockpick", 20, 92, 180, 20)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-									GUICtrlSetState($chkChestFarm, $GUI_UNCHECKED) ; par défaut désactivé
+									GUICtrlSetState($chkChestFarm, $GUI_UNCHECKED)
 									GUICtrlSetOnEvent($chkChestFarm, "ToggleChestFarm")
 
 Global $g_bPickupSalvageArmor = False
-Global $chkSalvageArmor = GUICtrlCreateCheckbox("Pickup Salvage Armors", 20, 112, 200, 20)
+Global $chkSalvageArmor = GUICtrlCreateCheckbox("Pickup Salvage Armors", 20, 112, 180, 20)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 									GUICtrlSetState($chkSalvageArmor, $GUI_UNCHECKED)
-									GUICtrlSetOnEvent($chkSalvageArmor, "ToggleSalvageArmor")		
+									GUICtrlSetOnEvent($chkSalvageArmor, "ToggleSalvageArmor")
 
+Global $g_bPickupTrophies = False
+Global $chkTrophies = GUICtrlCreateCheckbox("Pickup Trophies", 20, 132, 180, 20)
+                                    GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
+									GUICtrlSetState($chkTrophies, $GUI_UNCHECKED)
+									GUICtrlSetOnEvent($chkTrophies, "ToggleTrophies")
 
-Global Const $PconsBox =            GUICtrlCreateCheckbox("Use conset Stage 1", 230, 64, 119, 25)
+; Right column checkboxes
+Global Const $PconsBox =            GUICtrlCreateCheckbox("Use conset Stage 1", 210, 64, 150, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 									GUICtrlSetState(-1, $gui_checked)
-Global Const $PconsBox2 =            GUICtrlCreateCheckbox("Use conset Stage 2", 230, 92, 119, 25)
+Global Const $PconsBox2 =           GUICtrlCreateCheckbox("Use conset Stage 2", 210, 92, 150, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-									GUICtrlSetState(-1, $gui_checked)    
+									GUICtrlSetState(-1, $gui_checked)
 
 
 Global Const $Button =              GUICtrlCreateButton("Start", 230, 6, 150, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
                                     GUICtrlSetOnEvent($Button, "GuiButtonHandler")
-; Summoning Group                                    
-Global Const $Group2 =              GUICtrlCreateGroup("Use Summoning Stone", 8, 115, 372, 50)
+
+; Summoning Group
+Global Const $Group2 =              GUICtrlCreateGroup("Use Summoning Stone", 8, 155, 372, 50)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-Global Const $Summon1 =            GUICtrlCreateCheckbox("Stage 1", 20, 135, 200, 20)
+Global Const $Summon1 =            GUICtrlCreateCheckbox("Stage 1", 20, 175, 200, 20)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 									GUICtrlSetState(-1, $gui_checked)
-Global Const $Summon2 =            GUICtrlCreateCheckbox("Stage 2", 230, 135, 200, 20)
+Global Const $Summon2 =            GUICtrlCreateCheckbox("Stage 2", 230, 175, 200, 20)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
-									GUICtrlSetState(-1, $gui_checked)    
+									GUICtrlSetState(-1, $gui_checked)
 
-; Statistics Group                                    
-Global Const $Group1 =              GUICtrlCreateGroup("Statistics", 8, 162, 372, 135)
+; Statistics Group
+Global Const $Group1 =              GUICtrlCreateGroup("Statistics", 8, 210, 372, 145)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 
-Global Const $RunsLabel =           GUICtrlCreateLabel("Runs: " & $RunCount, 24, 184, 100, 18)
+Global Const $RunsLabel =           GUICtrlCreateLabel("Runs: " & $RunCount, 24, 232, 100, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
-Global Const $SuccessLabel =        GUICtrlCreateLabel("Success: " & $SuccessCount, 148, 184, 100, 18)
+Global Const $SuccessLabel =        GUICtrlCreateLabel("Success: " & $SuccessCount, 148, 232, 100, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
                                     GUICtrlSetColor(-1, 0x006400)
-Global Const $FailsLabel =          GUICtrlCreateLabel("Fails: " & $FailCount, 272, 184, 100, 18)
+Global Const $FailsLabel =          GUICtrlCreateLabel("Fails: " & $FailCount, 272, 232, 100, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
                                     GUICtrlSetColor(-1, 0x8B0000)
-;Global Const $LuxonTitleLabel =     GUICtrlCreateLabel("Luxon Title: " & $LuxonTitle, 24, 168, 100, 18)
-;                                    GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
-Global Const $FroggyLabel =     GUICtrlCreateLabel("Froggy: " & $FroggyGained, 148, 208, 200, 18)
+
+Global Const $FroggyLabel =     GUICtrlCreateLabel("Froggy: " & $FroggyGained, 148, 256, 200, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
 
-Global Const $FastTimeLabel =       GUICtrlCreateLabel("Fastest Time: " & "-", 24, 232, 150, 18)
+Global Const $FastTimeLabel =       GUICtrlCreateLabel("Fastest Time: " & "-", 24, 280, 150, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
 
-Global Const $AvgTimeLabel =        GUICtrlCreateLabel("Average Time: " & "-", 220, 232, 150, 18)
+Global Const $AvgTimeLabel =        GUICtrlCreateLabel("Average Time: " & "-", 220, 280, 150, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
 
-Global Const $Label1 =              GUICtrlCreateLabel("_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _", 16, 248, 360, 19)
-Global Const $Drops =               GUICtrlCreateLabel("Drops", 24, 272, 34, 18)
+Global Const $Label1 =              GUICtrlCreateLabel("_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _", 16, 296, 360, 19)
+Global Const $Drops =               GUICtrlCreateLabel("Drops", 24, 316, 34, 18)
                                     GUICtrlSetFont(-1, 8, 800, 4, "Times New Roman")
-Global Const $LockpickLabel =       GUICtrlCreateLabel("Lockpicks: " & $LockpicksGained, 148, 272, 100, 18)
+Global Const $LockpickLabel =       GUICtrlCreateLabel("Lockpicks: " & $LockpicksGained, 100, 316, 80, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
-Global Const $GoldItemsLabel =      GUICtrlCreateLabel("Gold Items: " & $GoldItemsGained, 272, 272, 100, 18)
+Global Const $GoldItemsLabel =      GUICtrlCreateLabel("Golds: " & $GoldItemsGained, 180, 316, 60, 18)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
                                     GUICtrlSetColor(-1, 0xDAA520)
-                                    
+Global Const $SalvageLabel =        GUICtrlCreateLabel("Salvage: " & $SalvageArmorGained, 245, 316, 60, 18)
+                                    GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
+                                    GUICtrlSetColor(-1, 0x4169E1)
+Global Const $TrophiesLabel =       GUICtrlCreateLabel("Trophies: " & $TrophiesGained, 310, 316, 65, 18)
+                                    GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
+
                                     GUICtrlCreateGroup("", -99, -99, 1, 1)
 
-; Output                                   
-Global $GLOGBOX =                   GUICtrlCreateEdit("", 8, 305, 372, 160)
+; Output
+Global $GLOGBOX =                   GUICtrlCreateEdit("", 8, 360, 372, 150)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
                                     GUICtrlSetState($GLOGBOX, $GUI_ONTOP)
 
-; Rendering                                  
-Global Const $RenderingBox =        GUICtrlCreateCheckbox("Rendering?", 8, 465, 100, 25)
+; Rendering
+Global Const $RenderingBox =        GUICtrlCreateCheckbox("Rendering?", 8, 515, 100, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
                                     GUICtrlSetState(-1, $gui_unchecked)
 								    GUICtrlSetOnEvent(-1, "Ui_ToggleRendering")
 
 ; Build Section
-Global Const $Builds =              GUICtrlCreateCheckbox("Sky's Builds?", 140, 470, 107, 25)
+Global Const $Builds =              GUICtrlCreateCheckbox("Sky's Builds?", 140, 520, 107, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 
-; Copyright :)                                   
-Global Const $BubbleLabel =         GUICtrlCreateLabel("by Sky", 290, 470, 85, 25)
+; Copyright :)
+Global Const $BubbleLabel =         GUICtrlCreateLabel("by Sky", 290, 520, 85, 25)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Viner Hand ITC")
-            
+
                                     GUISetState(@SW_SHOW)
                                     GUISetOnEvent($GUI_EVENT_CLOSE, "GuiButtonHandler")
 
 ; Fake Label, cause the last string is always strange
-Global Const $Fakelabel =           GUICtrlCreateLabel("", 110, 470, 10, 10)
+Global Const $Fakelabel =           GUICtrlCreateLabel("", 110, 520, 10, 10)
                                     GUICtrlSetFont(-1, 8, 800, 0, "Times New Roman")
-            
+
                                     GUISetState(@SW_SHOW)
                                     GUISetOnEvent($GUI_EVENT_CLOSE, "GuiButtonHandler")
 
 
-; Description: Handles the Button Press 
+; Description: Handles the Button Press
 Func GuiButtonHandler()
     Switch @GUI_CtrlId
 
@@ -216,5 +224,7 @@ Func UpdateStatistics()
     GUICtrlSetData($FastTimeLabel, "Fastest Time: " & $RunTimeMinutes & " min  " & $RunTimeSeconds & " sec")
     GUICtrlSetData($AvgTimeLabel, "Average Time: " & $AvgRunTimeMinutes & " min  " & $AvgRunTimeSeconds & " sec")
     GUICtrlSetData($LockpickLabel, "Lockpicks: " & $LockpicksGained)
-    GUICtrlSetData($GoldItemsLabel, "Gold Items: " & $GoldItemsGained)
+    GUICtrlSetData($GoldItemsLabel, "Golds: " & $GoldItemsGained)
+    GUICtrlSetData($SalvageLabel, "Salvage: " & $SalvageArmorGained)
+    GUICtrlSetData($TrophiesLabel, "Trophies: " & $TrophiesGained)
 EndFunc
