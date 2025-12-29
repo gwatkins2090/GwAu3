@@ -8,6 +8,9 @@
 #include <StaticConstants.au3>
 #include <EditConstants.au3>
 
+; === Enable GUI Event Mode ===
+Opt("GUIOnEventMode", 1)
+
 ; === Color Palette (Tailwind-inspired) ===
 Global Const $COLOR_BG_DARK = 0x0f172a        ; slate-900
 Global Const $COLOR_BG_CARD = 0x1e293b        ; slate-800
