@@ -54,14 +54,6 @@ Global $Map_Piece_Array[4] = [24629, 24630, 24631, 24632]
 Global $Stackable_Trophies_Array[1] = [27047]
 Global Const $ITEM_ID_Glacial_Stones = 27047
 
-;~ Froggy Loot Items
-Global Const $GC_I_MODELID_SENTIENT_VINE = 27041
-Global Const $ITEM_ID_Amphibian_Tongue = 27036
-Global Const $ITEM_ID_Candy_Cane_Shard = 556
-
-;~ Item Types
-Global Const $GC_I_TYPE_SALVAGE = 0
-
 ;~ Materials
 Global $All_Materials_Array[36] = [921, 922, 923, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934, 935, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 946, 948, 949, 950, 951, 952, 953, 954, 955, 956, 6532, 6533]
 Global $Common_Materials_Array[11] = [921, 925, 929, 933, 934, 940, 946, 948, 953, 954, 955]
@@ -1959,11 +1951,11 @@ ElseIf $lModelID == 25416 Then
 		Return True
 
 	; Amphibian Tongue
-	ElseIf $lModelID == $ITEM_ID_Amphibian_Tongue Then
+	ElseIf $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE Then
 		Return True
 
 	; Candy Cane Shard
-	ElseIf $lModelID == $ITEM_ID_Candy_Cane_Shard Then
+	ElseIf $lModelID == $GC_I_MODELID_CC_SHARDS Then
 		Return True
 
 	; Pcons (event items, consommables divers)
