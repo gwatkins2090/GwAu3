@@ -72,6 +72,7 @@ GUICtrlSetOnEvent($Button, "GuiButtonHandler")
 ; === Character Selection Card ===
 GUICtrlCreateLabel("", 15, 70, 390, 55)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("CHARACTER", 25, 78, 100, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
@@ -90,6 +91,7 @@ GUICtrlSetFont(-1, 10, 400, 0, "Segoe UI")
 ; === Options Card ===
 GUICtrlCreateLabel("", 15, 135, 390, 115)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("OPTIONS", 25, 143, 80, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
@@ -149,6 +151,7 @@ GUICtrlSetState(-1, $GUI_CHECKED)
 ; === Loot Pickup Card ===
 GUICtrlCreateLabel("", 15, 260, 390, 55)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("LOOT PICKUP", 25, 268, 100, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
@@ -172,6 +175,7 @@ GUICtrlSetOnEvent($chkTrophies, "ToggleTrophies")
 ; === Statistics Card ===
 GUICtrlCreateLabel("", 15, 325, 390, 130)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("STATISTICS", 25, 333, 100, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
@@ -243,6 +247,7 @@ GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
 ; === Drops Card ===
 GUICtrlCreateLabel("", 15, 465, 390, 55)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("DROPS", 25, 473, 60, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
@@ -293,6 +298,7 @@ GUICtrlSetBkColor(-1, $GUI_BKCOLOR_TRANSPARENT)
 ; === Console/Log Card ===
 GUICtrlCreateLabel("", 15, 530, 390, 110)
 GUICtrlSetBkColor(-1, $COLOR_BG_CARD)
+GUICtrlSetState(-1, $GUI_DISABLE)
 
 GUICtrlCreateLabel("CONSOLE", 25, 538, 80, 16)
 GUICtrlSetFont(-1, 8, 600, 0, "Segoe UI")
