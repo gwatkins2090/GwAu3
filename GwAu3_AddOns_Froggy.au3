@@ -59,6 +59,9 @@ Global Const $GC_I_MODELID_SENTIENT_VINE = 27041
 Global Const $ITEM_ID_Amphibian_Tongue = 27036
 Global Const $ITEM_ID_Candy_Cane_Shard = 556
 
+;~ Item Types
+Global Const $GC_I_TYPE_SALVAGE = 0
+
 ;~ Materials
 Global $All_Materials_Array[36] = [921, 922, 923, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934, 935, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 946, 948, 949, 950, 951, 952, 953, 954, 955, 956, 6532, 6533]
 Global $Common_Materials_Array[11] = [921, 925, 929, 933, 934, 940, 946, 948, 953, 954, 955]
@@ -1496,6 +1499,16 @@ Func ToggleChestFarm()
         $EnableChestFarm = False
         Out("Don't Use Lockpicks")
     EndIf
+EndFunc
+
+Func ToggleSalvageArmor()
+    If BitAND(GUICtrlRead($chkSalvageArmor), $GUI_CHECKED) = $GUI_CHECKED Then
+        $g_bPickupSalvageArmor = True
+        Out("Pickup Salvage Armors enabled")
+    Else
+        $g_bPickupSalvageArmor = False
+        Out("Pickup Salvage Armors disabled")
+    EndIf
 EndFunc	
 
 
@@ -1961,10 +1974,17 @@ ElseIf $lModelID == 25416 Then
 	ElseIf IsRareMaterial($aItemPtr) Then
 		Return True
 
-	; Tout le reste → ignoré
-	Else
-		Return False
+	; Blue Salvage Armors (when checkbox enabled)
+	ElseIf $g_bPickupSalvageArmor Then
+		Local $lItemType = Item_GetItemInfoByPtr($aItemPtr, "ItemType")
+		If $lItemType == $GC_I_TYPE_SALVAGE And $lRarity == $RARITY_Blue Then
+			Return True
+		EndIf
+
 	EndIf
+
+	; Tout le reste → ignoré
+	Return False
 EndFunc   ;==> CanPickUp
 
 

@@ -47,7 +47,13 @@ Global Const $HardmodeCheckbox =    GUICtrlCreateCheckbox("HM", 20, 64, 41, 25)
 Global $chkChestFarm = GUICtrlCreateCheckbox("Open Chest with Lockpick", 20, 92, 200, 20)
                                     GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
 									GUICtrlSetState($chkChestFarm, $GUI_UNCHECKED) ; par défaut désactivé
-									GUICtrlSetOnEvent($chkChestFarm, "ToggleChestFarm")		
+									GUICtrlSetOnEvent($chkChestFarm, "ToggleChestFarm")
+
+Global $g_bPickupSalvageArmor = False
+Global $chkSalvageArmor = GUICtrlCreateCheckbox("Pickup Salvage Armors", 20, 112, 200, 20)
+                                    GUICtrlSetFont(-1, 10, 400, 0, "Times New Roman")
+									GUICtrlSetState($chkSalvageArmor, $GUI_UNCHECKED)
+									GUICtrlSetOnEvent($chkSalvageArmor, "ToggleSalvageArmor")		
 
 
 Global Const $PconsBox =            GUICtrlCreateCheckbox("Use conset Stage 1", 230, 64, 119, 25)
