@@ -243,15 +243,16 @@ Global $runcounter = 1
 Global $Stucktimer = 0
 Global $RunningTimer = 0
 
-;~ Stuck Detection - Global run timeout (uses persistent timer, not instance time)
-Global Const $g_iMaxRunTime = 2700000  ; 45 minutes in milliseconds
+;~ Stuck Detection - Zone-based timeout (resets when entering each dungeon level)
+Global Const $g_iMaxZoneTime = 2100000   ; 35 minutes per zone in milliseconds
 Global $g_bRunTimedOut = False
-Global $g_iRunStartTimer = 0           ; Persistent timer for entire run (survives zone changes)
+Global $g_iZoneStartTimer = 0            ; Timer for current zone (resets on zone change)
+Global $g_sCurrentZone = ""              ; Track which zone we're in ("Level1", "Level2", "Outpost")
 
 ;~ Stuck Detection - Step progression tracking
-Global $g_iLastStepNumber = 0          ; Last step reached
-Global $g_iLastStepTime = 0            ; Timer when last step was reached
-Global Const $g_iMaxStepTime = 300000  ; 5 minutes max per step before considered stuck
+Global $g_iLastStepNumber = 0            ; Last step reached
+Global $g_iLastStepTime = 0              ; Timer when last step was reached
+Global Const $g_iMaxStepTime = 600000    ; 10 minutes max per step before considered stuck
 
 ;~ Stuck Detection - Position-based
 Global $g_fLastPosX = 0
@@ -1539,22 +1540,22 @@ EndFunc
 
 
 ; ============================================
-; Stuck Detection - Global Run Timeout
+; Stuck Detection - Zone-Based Timeout
 ; ============================================
-; Checks if we've been running for too long (uses persistent timer, survives zone changes)
+; Checks if we've been in the current zone for too long (35 min per zone)
 ; Returns True if timed out, False otherwise
 Func CheckRunTimeout()
-    ; Use persistent run timer instead of instance time
-    If $g_iRunStartTimer = 0 Then
+    ; Use zone timer
+    If $g_iZoneStartTimer = 0 Then
         Return False  ; Timer not started yet
     EndIf
 
-    Local $iElapsedTime = TimerDiff($g_iRunStartTimer)
+    Local $iElapsedTime = TimerDiff($g_iZoneStartTimer)
 
-    If $iElapsedTime > $g_iMaxRunTime Then
+    If $iElapsedTime > $g_iMaxZoneTime Then
         Local $iMinutes = Floor($iElapsedTime / 60000)
         Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
-        Out("RUN TIMEOUT: Total run time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded 45 min limit")
+        Out("ZONE TIMEOUT: " & $g_sCurrentZone & " time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded 35 min limit")
         $g_bRunTimedOut = True
         Return True
     EndIf
@@ -1592,20 +1593,30 @@ Func OnStepReached($iStepNumber)
     $g_iLastStepTime = TimerInit()
 EndFunc
 
+; Call when entering a new zone to reset the 35-minute zone timer
+Func OnZoneEntered($sZoneName)
+    $g_sCurrentZone = $sZoneName
+    $g_iZoneStartTimer = TimerInit()
+    $g_iLastStepTime = TimerInit()  ; Also reset step timer
+    ResetPositionStuck()
+    Out("Entered " & $sZoneName & " - 35 min zone timer started, 10 min step timer started")
+EndFunc
+
 ; Call this to reset all stuck detection at the start of each run
 Func ResetRunTimeout()
     $g_bRunTimedOut = False
-    $g_iRunStartTimer = TimerInit()  ; Start persistent run timer
+    $g_sCurrentZone = "Starting"
+    $g_iZoneStartTimer = TimerInit()
     $g_iLastStepNumber = 0
-    $g_iLastStepTime = TimerInit()   ; Start step timer
+    $g_iLastStepTime = TimerInit()
     ResetPositionStuck()
-    Out("Run timers reset - 45 min global limit, 5 min step limit")
+    Out("Run timers reset - 35 min zone limit, 10 min step limit")
 EndFunc
 
-; Get current run time formatted as MM:SS
-Func GetRunTimeFormatted()
-    If $g_iRunStartTimer = 0 Then Return "00:00"
-    Local $iElapsedTime = TimerDiff($g_iRunStartTimer)
+; Get current zone time formatted as MM:SS
+Func GetZoneTimeFormatted()
+    If $g_iZoneStartTimer = 0 Then Return "00:00"
+    Local $iElapsedTime = TimerDiff($g_iZoneStartTimer)
     Local $iMinutes = Floor($iElapsedTime / 60000)
     Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
     Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)

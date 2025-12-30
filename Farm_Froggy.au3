@@ -476,6 +476,8 @@ Func EnterFirstRun()
     Until Map_GetMapID() = $iBogrootGrowthsLevel1MapID
     Out("Enter !!")
     If Map_GetMapID() = $iBogrootGrowthsLevel1MapID Then
+        ; Reset zone timer for Level 1 (initial entry)
+        OnZoneEntered("Level 1")
         Out("Mission Map loaded")
         Sleep(2000)
         Out("Dungeon Ready")
@@ -513,6 +515,9 @@ If Map_GetMapID() <> $iBogrootGrowthsLevel1MapID Then
         EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel1MapID
 EndIf
+
+; Reset zone timer for Level 1
+OnZoneEntered("Level 1")
 
 Out("Aggro Frog Fight")
     DoStep(1, 18092, 4315, "aggro")
@@ -601,6 +606,10 @@ If Map_GetMapID() <> $iBogrootGrowthsLevel2MapID Then
         EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel2MapID
 EndIf
+
+; Reset zone timer for Level 2
+OnZoneEntered("Level 2")
+
 Out("Bogroot Growths - Level 2: Loaded!")
     $ChestFarmActive = True
 	Out("Moving to Beacon of Droknar")
@@ -813,6 +822,10 @@ Func Re_Enter()
             Return
         EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel1MapID
+
+    ; Reset zone timer for Level 1 (re-entry)
+    OnZoneEntered("Level 1")
+
     Out("Map Completely Loaded")
 EndFunc
 #EndRegion Quest
