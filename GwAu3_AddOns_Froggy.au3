@@ -596,6 +596,12 @@ Func DoStep($step, $x, $y, $mode = "aggro")
     While True
         Sleep(10)
 
+        ; Global run timeout check
+        If CheckRunTimeout() Then
+            Out("Global timeout at step " & $step & " -> aborting run")
+            Return False
+        EndIf
+
         ; Death en route
         If Agent_GetAgentInfo(-2, "IsDead") Then
             Out("Death detected -> waiting for resurrection...")
@@ -932,10 +938,13 @@ Func MoveTo($aX, $aY, $aRandom = 100)
     Do
         Sleep(100)
 
-        ; Mort → stop
+        ; Global run timeout check
+        If CheckRunTimeout() Then ExitLoop
+
+        ; Death -> stop
         If GetIsDead(-2) Then ExitLoop
 
-        ; 🚪 Détection changement de map
+        ; Map change detection
         If Map_GetMapID() <> $lMapStart Then ExitLoop
 
         ; Vérifie si le perso bouge
@@ -979,6 +988,8 @@ Func AggroMoveToEx($x, $y, $s = "", $z = 1500)
 	$coords[0] = Agent_GetAgentInfo(-2, 'X')
 	$coords[1] = Agent_GetAgentInfo(-2, 'Y')
 	Do
+		; Global run timeout check
+		If CheckRunTimeout() Then ExitLoop
 		If GetPartyDead() Then ExitLoop
 		Other_RndSleep(250)
 		$oldCoords = $coords
@@ -1025,6 +1036,9 @@ Func MoveToExact($aX, $aY, $aTolerance = 10)
 
 	Do
 		Sleep(100)
+
+		; Global run timeout check
+		If CheckRunTimeout() Then ExitLoop
 
 		If GetisDead(-2) Then ExitLoop
 
@@ -1330,9 +1344,15 @@ Func ClearEnemiesInCompass($range = 1700)
     Local $clearCount = 0
 
     While True
+        ; Global run timeout check
+        If CheckRunTimeout() Then
+            Out("Global timeout during enemy clearing -> aborting run")
+            Return False
+        EndIf
+
         If Agent_GetAgentInfo(-2, "IsDead") Then
-            Out("⚰️ Player is dead → abort clearing (will retry after rez)")
-            Return False ; on ne valide pas le clean
+            Out("Player is dead -> abort clearing (will retry after rez)")
+            Return False
         EndIf
 
         Local $enemy = GetNearestEnemyToAgent(-2, $range, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter")
