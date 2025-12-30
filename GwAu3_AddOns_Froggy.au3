@@ -246,6 +246,16 @@ Global $RunningTimer = 0
 ;~ Stuck Detection - Global run timeout
 Global Const $g_iMaxRunTime = 2700000  ; 45 minutes in milliseconds
 Global $g_bRunTimedOut = False
+
+;~ Stuck Detection - Position-based
+Global $g_fLastPosX = 0
+Global $g_fLastPosY = 0
+Global $g_iStuckCheckTimer = 0
+Global $g_iStuckCount = 0
+Global Const $g_iStuckCheckInterval = 3000   ; Check every 3 seconds
+Global Const $g_fMinMoveDistance = 75        ; Must move 75+ units to not be "stuck"
+Global Const $g_iMaxStuckCount = 5           ; 5 consecutive stuck checks = definitely stuck (15 sec)
+Global $g_iRecoveryAttempts = 0              ; Track escalating recovery attempts
 Global $mystictimer1 = 0
 Global $mystictimer2 = 0
 Global $indicator = 1
@@ -599,6 +609,13 @@ Func DoStep($step, $x, $y, $mode = "aggro")
         ; Global run timeout check
         If CheckRunTimeout() Then
             Out("Global timeout at step " & $step & " -> aborting run")
+            Return False
+        EndIf
+
+        ; Position-based stuck check
+        Local $iStuckResult = CheckPositionStuck()
+        If $iStuckResult = 2 Then
+            Out("Hopelessly stuck at step " & $step & " -> aborting run")
             Return False
         EndIf
 
@@ -1355,10 +1372,17 @@ Func ClearEnemiesInCompass($range = 1700)
             Return False
         EndIf
 
+        ; Position-based stuck check (only when not in combat)
         Local $enemy = GetNearestEnemyToAgent(-2, $range, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter")
 
         If $enemy = 0 Then
-            ; Aucun ennemi détecté → on incrémente la validation
+            ; No enemies - check if stuck
+            Local $iStuckResult = CheckPositionStuck()
+            If $iStuckResult = 2 Then
+                Out("Hopelessly stuck during enemy clearing -> aborting run")
+                Return False
+            EndIf
+            ; No enemy detected - increment validation counter
             $clearCount += 1
             If $clearCount >= 3 Then
                 Out("✅ All Enemy Dead")
@@ -1526,9 +1550,10 @@ Func CheckRunTimeout()
     Return False
 EndFunc
 
-; Call this to reset the timeout flag at the start of each run
+; Call this to reset all stuck detection at the start of each run
 Func ResetRunTimeout()
     $g_bRunTimedOut = False
+    ResetPositionStuck()
 EndFunc
 
 ; Get current instance time formatted as MM:SS
@@ -1537,6 +1562,159 @@ Func GetInstanceTimeFormatted()
     Local $iMinutes = Floor($iInstanceTime / 60000)
     Local $iSeconds = Floor(Mod($iInstanceTime, 60000) / 1000)
     Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)
+EndFunc
+
+
+; ============================================
+; Stuck Detection - Position-Based
+; ============================================
+; Checks if character has moved enough since last check
+; Returns: 0 = not stuck, 1 = stuck (recovery attempted), 2 = hopelessly stuck (abort run)
+Func CheckPositionStuck()
+    ; Skip check if not enough time has passed
+    If $g_iStuckCheckTimer <> 0 And TimerDiff($g_iStuckCheckTimer) < $g_iStuckCheckInterval Then
+        Return 0
+    EndIf
+
+    ; Skip if player is dead
+    If GetIsDead(-2) Then
+        ResetPositionStuck()
+        Return 0
+    EndIf
+
+    ; Skip if map is loading
+    If Map_GetInstanceInfo("IsLoading") Then
+        ResetPositionStuck()
+        Return 0
+    EndIf
+
+    ; Skip if in combat (enemies nearby)
+    If GetNumberOfFoesInRangeOfAgent(-2, 1200, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") > 0 Then
+        ; In combat - reset stuck counter but update position
+        $g_iStuckCount = 0
+        $g_fLastPosX = Agent_GetAgentInfo(-2, "X")
+        $g_fLastPosY = Agent_GetAgentInfo(-2, "Y")
+        $g_iStuckCheckTimer = TimerInit()
+        Return 0
+    EndIf
+
+    ; Get current position
+    Local $fCurX = Agent_GetAgentInfo(-2, "X")
+    Local $fCurY = Agent_GetAgentInfo(-2, "Y")
+
+    ; First check - just record position
+    If $g_fLastPosX = 0 And $g_fLastPosY = 0 Then
+        $g_fLastPosX = $fCurX
+        $g_fLastPosY = $fCurY
+        $g_iStuckCheckTimer = TimerInit()
+        Return 0
+    EndIf
+
+    ; Calculate distance moved
+    Local $fDistance = ComputeDistance($fCurX, $fCurY, $g_fLastPosX, $g_fLastPosY)
+
+    If $fDistance < $g_fMinMoveDistance Then
+        ; Didn't move enough - increment stuck counter
+        $g_iStuckCount += 1
+        Out("Position stuck: " & $g_iStuckCount & "/" & $g_iMaxStuckCount & " (moved " & Round($fDistance, 0) & " units)")
+
+        If $g_iStuckCount >= $g_iMaxStuckCount Then
+            ; Definitely stuck - attempt recovery
+            Out("STUCK DETECTED: No significant movement for " & Round(($g_iStuckCheckInterval * $g_iMaxStuckCount) / 1000, 0) & " seconds")
+
+            Local $iRecoveryResult = AttemptStuckRecovery()
+
+            If $iRecoveryResult = 0 Then
+                ; Recovery succeeded - reset counters
+                ResetPositionStuck()
+                Return 1  ; Was stuck, recovered
+            Else
+                ; Recovery failed - abort run
+                Return 2  ; Hopelessly stuck
+            EndIf
+        EndIf
+    Else
+        ; Moving normally - reset stuck counter
+        If $g_iStuckCount > 0 Then
+            Out("Movement resumed - stuck counter reset")
+        EndIf
+        $g_iStuckCount = 0
+        $g_iRecoveryAttempts = 0  ; Reset recovery attempts when moving normally
+    EndIf
+
+    ; Update last known position
+    $g_fLastPosX = $fCurX
+    $g_fLastPosY = $fCurY
+    $g_iStuckCheckTimer = TimerInit()
+
+    Return 0
+EndFunc
+
+; Reset all position stuck tracking variables
+Func ResetPositionStuck()
+    $g_fLastPosX = 0
+    $g_fLastPosY = 0
+    $g_iStuckCount = 0
+    $g_iStuckCheckTimer = 0
+    $g_iRecoveryAttempts = 0
+EndFunc
+
+; Attempt to recover from being stuck with escalating responses
+; Returns: 0 = recovery successful, 1 = recovery failed (abort run)
+Func AttemptStuckRecovery()
+    $g_iRecoveryAttempts += 1
+    Out("Stuck recovery attempt " & $g_iRecoveryAttempts & "/3")
+
+    Local $fCurX = Agent_GetAgentInfo(-2, "X")
+    Local $fCurY = Agent_GetAgentInfo(-2, "Y")
+
+    Switch $g_iRecoveryAttempts
+        Case 1
+            ; Level 1: Small random movement
+            Out("Recovery L1: Trying small random movement")
+            Local $fNewX = $fCurX + Random(-200, 200)
+            Local $fNewY = $fCurY + Random(-200, 200)
+            Map_Move($fNewX, $fNewY, 0)
+            Sleep(1500)
+
+            ; Check if we moved
+            Local $fMovedDist = ComputeDistance(Agent_GetAgentInfo(-2, "X"), Agent_GetAgentInfo(-2, "Y"), $fCurX, $fCurY)
+            If $fMovedDist > 50 Then
+                Out("Recovery L1: Success - moved " & Round($fMovedDist, 0) & " units")
+                $g_iStuckCount = 0
+                Return 0
+            EndIf
+            Out("Recovery L1: Failed - trying next level")
+            $g_iStuckCount = 0  ; Reset to allow next recovery attempt
+            Return 0  ; Continue trying
+
+        Case 2
+            ; Level 2: Larger random movement in different direction
+            Out("Recovery L2: Trying larger random movement")
+            Local $fAngle = Random(0, 6.28)  ; Random angle in radians
+            Local $fNewX = $fCurX + Cos($fAngle) * 400
+            Local $fNewY = $fCurY + Sin($fAngle) * 400
+            Map_Move($fNewX, $fNewY, 0)
+            Sleep(2000)
+
+            ; Check if we moved
+            Local $fMovedDist = ComputeDistance(Agent_GetAgentInfo(-2, "X"), Agent_GetAgentInfo(-2, "Y"), $fCurX, $fCurY)
+            If $fMovedDist > 100 Then
+                Out("Recovery L2: Success - moved " & Round($fMovedDist, 0) & " units")
+                $g_iStuckCount = 0
+                Return 0
+            EndIf
+            Out("Recovery L2: Failed - trying next level")
+            $g_iStuckCount = 0
+            Return 0
+
+        Case Else
+            ; Level 3+: Give up and abort run
+            Out("Recovery L3: All recovery attempts failed - aborting run")
+            Return 1  ; Signal to abort
+    EndSwitch
+
+    Return 0
 EndFunc
 
 

@@ -383,6 +383,15 @@ Func CombatLoop()
         EndIf
 
         ; ===============================
+        ; Position-based stuck check
+        ; ===============================
+        Local $iStuckResult = CheckPositionStuck()
+        If $iStuckResult = 2 Then
+            Out("Hopelessly stuck, restarting run...")
+            ExitLoop
+        EndIf
+
+        ; ===============================
         ; Inventory check
         ; ===============================
         If CountSlots() < 5 Then
