@@ -242,6 +242,10 @@ Global $Y
 Global $runcounter = 1
 Global $Stucktimer = 0
 Global $RunningTimer = 0
+
+;~ Stuck Detection - Global run timeout
+Global Const $g_iMaxRunTime = 2700000  ; 45 minutes in milliseconds
+Global $g_bRunTimedOut = False
 Global $mystictimer1 = 0
 Global $mystictimer2 = 0
 Global $indicator = 1
@@ -1480,6 +1484,39 @@ $yChestOldAr[UBound($yChestOldAr)-1] = $ychest
 		If GetIsDead(-2) Then Return
 	EndIf
 	return True
+EndFunc
+
+
+; ============================================
+; Stuck Detection - Global Run Timeout
+; ============================================
+; Checks if we've been in the current map instance for too long
+; Returns True if timed out, False otherwise
+Func CheckRunTimeout()
+    Local $iInstanceTime = Map_GetInstanceUpTime()
+
+    If $iInstanceTime > $g_iMaxRunTime Then
+        Local $iMinutes = Floor($iInstanceTime / 60000)
+        Local $iSeconds = Floor(Mod($iInstanceTime, 60000) / 1000)
+        Out("RUN TIMEOUT: Instance time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded limit")
+        $g_bRunTimedOut = True
+        Return True
+    EndIf
+
+    Return False
+EndFunc
+
+; Call this to reset the timeout flag at the start of each run
+Func ResetRunTimeout()
+    $g_bRunTimedOut = False
+EndFunc
+
+; Get current instance time formatted as MM:SS
+Func GetInstanceTimeFormatted()
+    Local $iInstanceTime = Map_GetInstanceUpTime()
+    Local $iMinutes = Floor($iInstanceTime / 60000)
+    Local $iSeconds = Floor(Mod($iInstanceTime, 60000) / 1000)
+    Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)
 EndFunc
 
 

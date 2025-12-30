@@ -93,10 +93,20 @@ WEnd
 #Region === Core Farming Loop ===
 ; ===========================================
 Func MainFarm()
+    ResetRunTimeout()
+
     Setup()
+    If CheckRunTimeout() Then Return
+
     GoToDungeon()
+    If CheckRunTimeout() Then Return
+
     TakeQuest()
+    If CheckRunTimeout() Then Return
+
     EnterFirstRun()
+    If CheckRunTimeout() Then Return
+
     CombatLoop()
 EndFunc ;==> MainFarm
 
@@ -364,6 +374,14 @@ Func CombatLoop()
     Out("Starting Froggy Farm")
 
     While $BotRunning
+        ; ===============================
+        ; Run timeout check
+        ; ===============================
+        If CheckRunTimeout() Then
+            Out("Aborting run due to timeout, restarting...")
+            ExitLoop
+        EndIf
+
         ; ===============================
         ; Inventory check
         ; ===============================
