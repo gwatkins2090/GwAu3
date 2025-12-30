@@ -243,9 +243,15 @@ Global $runcounter = 1
 Global $Stucktimer = 0
 Global $RunningTimer = 0
 
-;~ Stuck Detection - Global run timeout
+;~ Stuck Detection - Global run timeout (uses persistent timer, not instance time)
 Global Const $g_iMaxRunTime = 2700000  ; 45 minutes in milliseconds
 Global $g_bRunTimedOut = False
+Global $g_iRunStartTimer = 0           ; Persistent timer for entire run (survives zone changes)
+
+;~ Stuck Detection - Step progression tracking
+Global $g_iLastStepNumber = 0          ; Last step reached
+Global $g_iLastStepTime = 0            ; Timer when last step was reached
+Global Const $g_iMaxStepTime = 300000  ; 5 minutes max per step before considered stuck
 
 ;~ Stuck Detection - Position-based
 Global $g_fLastPosX = 0
@@ -635,6 +641,7 @@ Func DoStep($step, $x, $y, $mode = "aggro")
         If $distToDest < 100 Then
             Out("Step " & $step & " reached (" & $x & "," & $y & ")")
             $iCurrentStep = $step
+            OnStepReached($step)  ; Record step for timeout tracking
             Return True ; Step success
         EndIf
 
@@ -1534,15 +1541,44 @@ EndFunc
 ; ============================================
 ; Stuck Detection - Global Run Timeout
 ; ============================================
-; Checks if we've been in the current map instance for too long
+; Checks if we've been running for too long (uses persistent timer, survives zone changes)
 ; Returns True if timed out, False otherwise
 Func CheckRunTimeout()
-    Local $iInstanceTime = Map_GetInstanceUpTime()
+    ; Use persistent run timer instead of instance time
+    If $g_iRunStartTimer = 0 Then
+        Return False  ; Timer not started yet
+    EndIf
 
-    If $iInstanceTime > $g_iMaxRunTime Then
-        Local $iMinutes = Floor($iInstanceTime / 60000)
-        Local $iSeconds = Floor(Mod($iInstanceTime, 60000) / 1000)
-        Out("RUN TIMEOUT: Instance time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded limit")
+    Local $iElapsedTime = TimerDiff($g_iRunStartTimer)
+
+    If $iElapsedTime > $g_iMaxRunTime Then
+        Local $iMinutes = Floor($iElapsedTime / 60000)
+        Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
+        Out("RUN TIMEOUT: Total run time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded 45 min limit")
+        $g_bRunTimedOut = True
+        Return True
+    EndIf
+
+    ; Also check step progression timeout
+    If CheckStepTimeout() Then
+        Return True
+    EndIf
+
+    Return False
+EndFunc
+
+; Check if we've been stuck on the same step for too long
+Func CheckStepTimeout()
+    If $g_iLastStepTime = 0 Then
+        Return False  ; No step recorded yet
+    EndIf
+
+    Local $iTimeSinceLastStep = TimerDiff($g_iLastStepTime)
+
+    If $iTimeSinceLastStep > $g_iMaxStepTime Then
+        Local $iMinutes = Floor($iTimeSinceLastStep / 60000)
+        Local $iSeconds = Floor(Mod($iTimeSinceLastStep, 60000) / 1000)
+        Out("STEP TIMEOUT: No progress for " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " (stuck after step " & $g_iLastStepNumber & ")")
         $g_bRunTimedOut = True
         Return True
     EndIf
@@ -1550,13 +1586,32 @@ Func CheckRunTimeout()
     Return False
 EndFunc
 
+; Call when a step is successfully reached
+Func OnStepReached($iStepNumber)
+    $g_iLastStepNumber = $iStepNumber
+    $g_iLastStepTime = TimerInit()
+EndFunc
+
 ; Call this to reset all stuck detection at the start of each run
 Func ResetRunTimeout()
     $g_bRunTimedOut = False
+    $g_iRunStartTimer = TimerInit()  ; Start persistent run timer
+    $g_iLastStepNumber = 0
+    $g_iLastStepTime = TimerInit()   ; Start step timer
     ResetPositionStuck()
+    Out("Run timers reset - 45 min global limit, 5 min step limit")
 EndFunc
 
-; Get current instance time formatted as MM:SS
+; Get current run time formatted as MM:SS
+Func GetRunTimeFormatted()
+    If $g_iRunStartTimer = 0 Then Return "00:00"
+    Local $iElapsedTime = TimerDiff($g_iRunStartTimer)
+    Local $iMinutes = Floor($iElapsedTime / 60000)
+    Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
+    Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)
+EndFunc
+
+; Get current instance time formatted as MM:SS (for display purposes)
 Func GetInstanceTimeFormatted()
     Local $iInstanceTime = Map_GetInstanceUpTime()
     Local $iMinutes = Floor($iInstanceTime / 60000)

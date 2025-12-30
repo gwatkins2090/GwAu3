@@ -256,9 +256,18 @@ Func GoToDungeon()
 
     ; === Exit to Map ===
     MoveTo(-9451, -19766)
-    Out("Going Out")
+    Out("Going Out - waiting for outpost...")
+    Local $iWaitTimer = TimerInit()
     Do
-        Sleep(1000)
+        Sleep(500)
+        If CheckRunTimeout() Then
+            Out("Timeout waiting for exit - aborting")
+            Return
+        EndIf
+        If TimerDiff($iWaitTimer) > 60000 Then
+            Out("Exit timeout (60s) - aborting")
+            Return
+        EndIf
     Until Map_GetMapID() == $iSplarkflyMapID
     Sleep(1000)
 
@@ -450,12 +459,22 @@ EndFunc
 #Region === Stages ===
 ; ===========================================
 Func EnterFirstRun()
+    Local $iEnterAttempts = 0
     Do
+        $iEnterAttempts += 1
+        If $iEnterAttempts > 10 Then
+            Out("Failed to enter dungeon after 10 attempts - aborting")
+            Return
+        EndIf
+        If CheckRunTimeout() Then
+            Out("Timeout during dungeon entry - aborting")
+            Return
+        EndIf
         MoveTo(11676.01, 22685)
         MoveTo(11562.77, 24059)
         MoveTo(13097, 26393)
     Until Map_GetMapID() = $iBogrootGrowthsLevel1MapID
-Out("Enter !!")
+    Out("Enter !!")
     If Map_GetMapID() = $iBogrootGrowthsLevel1MapID Then
         Out("Mission Map loaded")
         Sleep(2000)
@@ -478,12 +497,24 @@ Func FirstStage()
 
 ; If quest is active, continue normally
 If Map_GetMapID() <> $iBogrootGrowthsLevel1MapID Then
+    Out("Waiting for dungeon map to load...")
+    Local $iWaitTimer = TimerInit()
     Do
         Sleep(500)
+        ; Check for timeout while waiting for map load
+        If CheckRunTimeout() Then
+            Out("Timeout waiting for map load - aborting")
+            Return
+        EndIf
+        ; Safety check - don't wait more than 60 seconds for map load
+        If TimerDiff($iWaitTimer) > 60000 Then
+            Out("Map load timeout (60s) - aborting")
+            Return
+        EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel1MapID
 EndIf
 
-	    Out("Aggro Frog Fight")
+Out("Aggro Frog Fight")
     DoStep(1, 18092, 4315, "aggro")
 	Out("Moving to Beacon of Droknar")
     DoStep(2, 19045.95, 7877, "aggro")
@@ -556,8 +587,18 @@ Func SecondStage()
 ; Safety: if we already changed map, exit directly
 ; If quest is active, continue normally
 If Map_GetMapID() <> $iBogrootGrowthsLevel2MapID Then
+    Out("Waiting for Level 2 to load...")
+    Local $iWaitTimer = TimerInit()
     Do
-        Sleep(2000)
+        Sleep(500)
+        If CheckRunTimeout() Then
+            Out("Timeout waiting for Level 2 - aborting")
+            Return
+        EndIf
+        If TimerDiff($iWaitTimer) > 60000 Then
+            Out("Level 2 load timeout (60s) - aborting")
+            Return
+        EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel2MapID
 EndIf
 Out("Bogroot Growths - Level 2: Loaded!")
@@ -697,11 +738,21 @@ DoStep(99, 15116.40, -18733, "aggro")
 Local $questID = 0x339
 
     MoveTo(14497.64, -17438) ; approximate Tekks position
-    HandleTekks("reward", $questID)  ; 		
-	    Do
+    HandleTekks("reward", $questID)
+    Out("Waiting for outpost map...")
+    Local $iWaitTimer = TimerInit()
+    Do
         Sleep(500)
+        If CheckRunTimeout() Then
+            Out("Timeout waiting for outpost - aborting")
+            Return
+        EndIf
+        If TimerDiff($iWaitTimer) > 60000 Then
+            Out("Outpost load timeout (60s) - aborting")
+            Return
+        EndIf
     Until Map_GetMapID() == $iSplarkflyMapID
-Sleep(2000)
+    Sleep(2000)
 EndFunc ;==> LastStep
 
 
@@ -748,10 +799,20 @@ Func Re_Enter()
     MoveTo(11676.01, 22685)
     MoveTo(11562.77, 24059)
     MoveTo(13130.04, 26467.22)
-Out("Enter !!")	
+    Out("Enter !!")
+    Out("Waiting for dungeon map to load...")
+    Local $iWaitTimer = TimerInit()
     Do
-        Sleep(4000)
+        Sleep(500)
+        If CheckRunTimeout() Then
+            Out("Timeout waiting for re-entry - aborting")
+            Return
+        EndIf
+        If TimerDiff($iWaitTimer) > 60000 Then
+            Out("Re-entry timeout (60s) - aborting")
+            Return
+        EndIf
     Until Map_GetMapID() == $iBogrootGrowthsLevel1MapID
-    Out("Map Completly Loaded")
+    Out("Map Completely Loaded")
 EndFunc
 #EndRegion Quest
