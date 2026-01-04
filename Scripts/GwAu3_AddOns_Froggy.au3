@@ -243,6 +243,28 @@ Global $Y
 Global $runcounter = 1
 Global $Stucktimer = 0
 Global $RunningTimer = 0
+
+;~ Stuck Detection - Zone-based timeout (resets when entering each dungeon level)
+Global Const $g_iMaxZoneTime = 2100000   ; 35 minutes per zone in milliseconds
+Global $g_bRunTimedOut = False
+Global $g_iZoneStartTimer = 0            ; Timer for current zone (resets on zone change)
+Global $g_sCurrentZone = ""              ; Track which zone we're in ("Level1", "Level2", "Outpost")
+
+;~ Stuck Detection - Step progression tracking
+Global $g_iLastStepNumber = 0            ; Last step reached
+Global $g_iLastStepTime = 0              ; Timer when last step was reached
+Global Const $g_iMaxStepTime = 600000    ; 10 minutes max per step before considered stuck
+
+;~ Stuck Detection - Position-based
+Global $g_fLastPosX = 0
+Global $g_fLastPosY = 0
+Global $g_iStuckCheckTimer = 0
+Global $g_iStuckCount = 0
+Global Const $g_iStuckCheckInterval = 3000   ; Check every 3 seconds
+Global Const $g_fMinMoveDistance = 75        ; Must move 75+ units to not be "stuck"
+Global Const $g_iMaxStuckCount = 5           ; 5 consecutive stuck checks = definitely stuck (15 sec)
+Global $g_iRecoveryAttempts = 0              ; Track escalating recovery attempts
+
 Global $mystictimer1 = 0
 Global $mystictimer2 = 0
 Global $indicator = 1
@@ -1971,6 +1993,249 @@ Func ToggleChestFarm()
     EndIf
 EndFunc
 
+Func ToggleSalvageArmor()
+    If BitAND(GUICtrlRead($chkSalvageArmor), $GUI_CHECKED) = $GUI_CHECKED Then
+        $g_bPickupSalvageArmor = True
+        Out("Pickup Salvage Armors enabled")
+    Else
+        $g_bPickupSalvageArmor = False
+        Out("Pickup Salvage Armors disabled")
+    EndIf
+EndFunc
+
+Func ToggleTrophies()
+    If BitAND(GUICtrlRead($chkTrophies), $GUI_CHECKED) = $GUI_CHECKED Then
+        $g_bPickupTrophies = True
+        Out("Pickup Trophies enabled")
+    Else
+        $g_bPickupTrophies = False
+        Out("Pickup Trophies disabled")
+    EndIf
+EndFunc
+
+
+; ============================================
+; Stuck Detection - Zone-Based Timeout
+; ============================================
+; Checks if we've been in the current zone for too long (35 min per zone)
+; Returns True if timed out, False otherwise
+Func CheckRunTimeout()
+    ; Use zone timer
+    If $g_iZoneStartTimer = 0 Then
+        Return False  ; Timer not started yet
+    EndIf
+
+    Local $iElapsedTime = TimerDiff($g_iZoneStartTimer)
+
+    If $iElapsedTime > $g_iMaxZoneTime Then
+        Local $iMinutes = Floor($iElapsedTime / 60000)
+        Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
+        Out("ZONE TIMEOUT: " & $g_sCurrentZone & " time " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " exceeded 35 min limit")
+        $g_bRunTimedOut = True
+        Return True
+    EndIf
+
+    ; Also check step progression timeout
+    If CheckStepTimeout() Then
+        Return True
+    EndIf
+
+    Return False
+EndFunc
+
+; Check if we've been stuck on the same step for too long
+Func CheckStepTimeout()
+    If $g_iLastStepTime = 0 Then
+        Return False  ; No step recorded yet
+    EndIf
+
+    Local $iTimeSinceLastStep = TimerDiff($g_iLastStepTime)
+
+    If $iTimeSinceLastStep > $g_iMaxStepTime Then
+        Local $iMinutes = Floor($iTimeSinceLastStep / 60000)
+        Local $iSeconds = Floor(Mod($iTimeSinceLastStep, 60000) / 1000)
+        Out("STEP TIMEOUT: No progress for " & $iMinutes & ":" & StringFormat("%02d", $iSeconds) & " (stuck after step " & $g_iLastStepNumber & ")")
+        $g_bRunTimedOut = True
+        Return True
+    EndIf
+
+    Return False
+EndFunc
+
+; Call when a step is successfully reached
+Func OnStepReached($iStepNumber)
+    $g_iLastStepNumber = $iStepNumber
+    $g_iLastStepTime = TimerInit()
+EndFunc
+
+; Call when entering a new zone to reset the 35-minute zone timer
+Func OnZoneEntered($sZoneName)
+    $g_sCurrentZone = $sZoneName
+    $g_iZoneStartTimer = TimerInit()
+    $g_iLastStepTime = TimerInit()  ; Also reset step timer
+    ResetPositionStuck()
+    Out("Entered " & $sZoneName & " - 35 min zone timer started, 10 min step timer started")
+EndFunc
+
+; Call this to reset all stuck detection at the start of each run
+Func ResetRunTimeout()
+    $g_bRunTimedOut = False
+    $g_sCurrentZone = "Starting"
+    $g_iZoneStartTimer = TimerInit()
+    $g_iLastStepNumber = 0
+    $g_iLastStepTime = TimerInit()
+    ResetPositionStuck()
+    Out("Run timers reset - 35 min zone limit, 10 min step limit")
+EndFunc
+
+; Get current zone time formatted as MM:SS
+Func GetZoneTimeFormatted()
+    If $g_iZoneStartTimer = 0 Then Return "00:00"
+    Local $iElapsedTime = TimerDiff($g_iZoneStartTimer)
+    Local $iMinutes = Floor($iElapsedTime / 60000)
+    Local $iSeconds = Floor(Mod($iElapsedTime, 60000) / 1000)
+    Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)
+EndFunc
+
+; Get current instance time formatted as MM:SS (for display purposes)
+Func GetInstanceTimeFormatted()
+    Local $iInstanceTime = Map_GetInstanceUpTime()
+    Local $iMinutes = Floor($iInstanceTime / 60000)
+    Local $iSeconds = Floor(Mod($iInstanceTime, 60000) / 1000)
+    Return $iMinutes & ":" & StringFormat("%02d", $iSeconds)
+EndFunc
+
+
+; ============================================
+; Stuck Detection - Position-Based
+; ============================================
+; Checks if character has moved enough since last check
+; Returns: 0 = not stuck, 1 = stuck (recovery attempted), 2 = hopelessly stuck (abort run)
+Func CheckPositionStuck()
+    ; Skip check if not enough time has passed
+    If $g_iStuckCheckTimer <> 0 And TimerDiff($g_iStuckCheckTimer) < $g_iStuckCheckInterval Then
+        Return 0
+    EndIf
+
+    ; Skip if player is dead
+    If GetIsDead(-2) Then
+        ResetPositionStuck()
+        Return 0
+    EndIf
+
+    ; Skip if map is loading
+    If Map_GetInstanceInfo("IsLoading") Then
+        ResetPositionStuck()
+        Return 0
+    EndIf
+
+    ; Skip if in combat (enemies nearby)
+    If GetNumberOfFoesInRangeOfAgent(-2, 1200, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") > 0 Then
+        ; In combat - reset stuck counter but update position
+        $g_iStuckCount = 0
+        $g_fLastPosX = Agent_GetAgentInfo(-2, "X")
+        $g_fLastPosY = Agent_GetAgentInfo(-2, "Y")
+        $g_iStuckCheckTimer = TimerInit()
+        Return 0
+    EndIf
+
+    ; Get current position
+    Local $fCurX = Agent_GetAgentInfo(-2, "X")
+    Local $fCurY = Agent_GetAgentInfo(-2, "Y")
+
+    ; First check - just record position
+    If $g_fLastPosX = 0 And $g_fLastPosY = 0 Then
+        $g_fLastPosX = $fCurX
+        $g_fLastPosY = $fCurY
+        $g_iStuckCheckTimer = TimerInit()
+        Return 0
+    EndIf
+
+    ; Calculate distance moved
+    Local $fDistance = ComputeDistance($fCurX, $fCurY, $g_fLastPosX, $g_fLastPosY)
+
+    If $fDistance < $g_fMinMoveDistance Then
+        ; Didn't move enough - increment stuck counter
+        $g_iStuckCount += 1
+        Out("Position stuck: " & $g_iStuckCount & "/" & $g_iMaxStuckCount & " (moved " & Round($fDistance, 0) & " units)")
+
+        If $g_iStuckCount >= $g_iMaxStuckCount Then
+            ; Definitely stuck - attempt recovery
+            Out("STUCK DETECTED: No significant movement for " & Round(($g_iStuckCheckInterval * $g_iMaxStuckCount) / 1000, 0) & " seconds")
+
+            Local $iRecoveryResult = AttemptStuckRecovery()
+
+            If $iRecoveryResult = 0 Then
+                ; Recovery succeeded - reset counters
+                ResetPositionStuck()
+                Return 1  ; Was stuck, recovered
+            Else
+                ; Recovery failed - abort run
+                Return 2  ; Hopelessly stuck
+            EndIf
+        EndIf
+    Else
+        ; Moving normally - reset stuck counter
+        If $g_iStuckCount > 0 Then
+            Out("Movement resumed - stuck counter reset")
+        EndIf
+        $g_iStuckCount = 0
+        $g_iRecoveryAttempts = 0  ; Reset recovery attempts when moving normally
+    EndIf
+
+    ; Update last known position
+    $g_fLastPosX = $fCurX
+    $g_fLastPosY = $fCurY
+    $g_iStuckCheckTimer = TimerInit()
+
+    Return 0
+EndFunc
+
+; Reset all position stuck tracking variables
+Func ResetPositionStuck()
+    $g_fLastPosX = 0
+    $g_fLastPosY = 0
+    $g_iStuckCount = 0
+    $g_iStuckCheckTimer = 0
+    $g_iRecoveryAttempts = 0
+EndFunc
+
+; Attempt to recover from being stuck with escalating responses
+; Returns: 0 = recovery successful, 1 = recovery failed (abort run)
+Func AttemptStuckRecovery()
+    $g_iRecoveryAttempts += 1
+    Out("Stuck recovery attempt " & $g_iRecoveryAttempts & "/3")
+
+    Local $fCurX = Agent_GetAgentInfo(-2, "X")
+    Local $fCurY = Agent_GetAgentInfo(-2, "Y")
+
+    Switch $g_iRecoveryAttempts
+        Case 1
+            ; Level 1: Small random movement
+            Out("Recovery Level 1: Random movement")
+            Local $fNewX = $fCurX + Random(-200, 200)
+            Local $fNewY = $fCurY + Random(-200, 200)
+            MoveTo($fNewX, $fNewY)
+            Sleep(2000)
+            Return 0  ; Try again
+
+        Case 2
+            ; Level 2: Larger random movement + skill usage
+            Out("Recovery Level 2: Large movement + jump skill")
+            Local $fNewX = $fCurX + Random(-500, 500)
+            Local $fNewY = $fCurY + Random(-500, 500)
+            MoveTo($fNewX, $fNewY)
+            Sleep(3000)
+            Return 0  ; Try again
+
+        Case Else
+            ; Level 3: Give up - restart the run
+            Out("Recovery Level 3: All recovery attempts failed - aborting run")
+            Return 1  ; Failed
+    EndSwitch
+EndFunc
+
+
 Func GetPartyDead()
 	; Party is dead, if player is dead and no more heroes have a rez skill or all heroes with rez skills are also dead
 	Local $heroID
@@ -2374,62 +2639,74 @@ Func CanPickUp($aItemPtr)
 	Local $aExtraID = Item_GetItemInfoByPtr($aItemPtr, "ExtraID")
 	Local $lRarity  = Item_GetItemInfoByPtr($aItemPtr, "Rarity")
 
-	; Pièces d'or
+	; Gold coins
 	If (($lModelID == 2511) And (GetGoldCharacter() < 99000)) Then
 		Return True
 
-	; Teintures : uniquement Noir & Blanc
+	; Dyes: Black & White only
 	ElseIf ($lModelID == $ITEM_ID_Dyes) Then
 		If (($aExtraID == $ITEM_ExtraID_BlackDye) Or ($aExtraID == $ITEM_ExtraID_WhiteDye)) Then
 			Return True
 		EndIf
 
-	; Objets or
-ElseIf $lRarity == $RARITY_Gold Then
-    $GoldItemsGained += 1
-    GUICtrlSetData($GoldItemsLabel, "Gold Items: " & $GoldItemsGained)
-Return True
-		
+	; Gold items
+	ElseIf $lRarity == $RARITY_Gold Then
+		$GoldItemsGained += 1
+		GUICtrlSetData($GoldItemsLabel, "Gold Items: " & $GoldItemsGained)
+		Return True
 
-; Froggies
-ElseIf $lModelID = 1197 Or $lModelID = 1556 Or $lModelID = 1569 Or $lModelID = 1439 Or $lModelID = 1563 Then
-    $FroggyGained += 1
-    Out("Un Froggy !! GG")
-    GUICtrlSetData($FroggyLabel, "Froggy: " & $FroggyGained)
-    Return True
+	; Froggies
+	ElseIf $lModelID = 1197 Or $lModelID = 1556 Or $lModelID = 1569 Or $lModelID = 1439 Or $lModelID = 1563 Then
+		$FroggyGained += 1
+		Out("A Froggy! Nice!")
+		GUICtrlSetData($FroggyLabel, "Froggy: " & $FroggyGained)
+		Return True
 
+	; Lockpicks
+	ElseIf $lModelID == $ITEM_ID_Lockpicks Then
+		$LockpicksGained += 1
+		Return True
 
-; Objets violets → ignorés
-ElseIf $lRarity == $RARITY_Purple Then
-    Return False
-
-; Lockpicks
-ElseIf $lModelID == $ITEM_ID_Lockpicks Then
-    $LockpicksGained += 1
-    Return True
-
-; Clé de boss
-ElseIf $lModelID == 25416 Then
-    Out("Clé de boss ramassée !")
-    Return True
-
+	; Boss key
+	ElseIf $lModelID == 25416 Then
+		Out("Boss key picked up!")
+		Return True
 
 	; Cupcakes
 	ElseIf $lModelID == 22269 Then
 		Return True
 
-	; Pcons (event items, consommables divers)
+	; Candy Cane Shard
+	ElseIf $lModelID == $GC_I_MODELID_CC_SHARDS Then
+		Return True
+
+	; Trophies (when checkbox enabled) - Sentient Vine, Amphibian Tongue, Beetle Egg
+	ElseIf $g_bPickupTrophies And ($lModelID == $GC_I_MODELID_SENTIENT_VINE Or $lModelID == $GC_I_MODELID_AMPHIBIAN_TONGUE Or $lModelID == 27066) Then
+		$TrophiesGained += 1
+		GUICtrlSetData($TrophiesLabel, "Trophies: " & $TrophiesGained)
+		Return True
+
+	; Pcons (event items, misc consumables)
 	ElseIf IsPcon($aItemPtr) Then
 		Return False
 
-	; Matériaux rares
+	; Rare materials
 	ElseIf IsRareMaterial($aItemPtr) Then
 		Return True
 
-	; Tout le reste → ignoré
-	Else
-		Return False
+	; Blue/Purple Salvage Armors (when checkbox enabled)
+	ElseIf $g_bPickupSalvageArmor And ($lRarity == $RARITY_Blue Or $lRarity == $RARITY_Purple) Then
+		Local $lItemType = Item_GetItemInfoByPtr($aItemPtr, "ItemType")
+		If $lItemType == $GC_I_TYPE_SALVAGE Then
+			$SalvageArmorGained += 1
+			GUICtrlSetData($SalvageLabel, "Salvage: " & $SalvageArmorGained)
+			Return True
+		EndIf
+
 	EndIf
+
+	; Everything else -> ignored
+	Return False
 EndFunc   ;==> CanPickUp
 
 
