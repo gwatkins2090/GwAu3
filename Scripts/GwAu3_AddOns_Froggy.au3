@@ -405,23 +405,23 @@ Func GetNearestSignpostToAgent($aAgentID = -2, $aRange = 1320, $aReturnMode = 1,
 EndFunc ;==>GetNearestSignpostToAgent
 
 ; ==========================
-; Vérifie si le bot est dans un état "safe" pour continuer
+; Checks if the bot is in a "safe" state to continue
 ; ==========================
 Func CheckSafeState()
-    ; ⚰️ Mort → stop direct
+    ; Death -> stop directly
     If Agent_GetAgentInfo(-2, "IsDead") Then
-        Out("⚠️ CheckSafeState → Player is dead, abort function")
+        Out("CheckSafeState: Player is dead, abort function")
         Return False
     EndIf
 
-    ; 🚶 Pas en mouvement ET pas d’ennemis → inutile de continuer
+    ; Not moving AND no enemies -> no point continuing
     If Not Agent_GetAgentInfo(-2, "IsMoving") And _
        GetNumberOfFoesInRangeOfAgent(-2, 1500, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") = 0 Then
-        Out("⚠️ CheckSafeState → No movement and no enemies")
+        Out("CheckSafeState: No movement and no enemies")
         Return False
     EndIf
 
-    ; ✅ Tout va bien → on peut continuer
+    ; All good -> can continue
     Return True
 EndFunc
 
@@ -431,18 +431,18 @@ Func HasDeathPenalty()
 EndFunc
 
 Func DPRemoval()
-    ; Tant qu’il y a un malus de morale
+    ; While there is a morale penalty
     While Party_GetMoraleInfo(-2, "IsMoralePenalty")
         If Not UseFirstDPRemoval() Then
-            Out("Aucun DP Removal trouvé")
+            Out("No DP Removal found")
             ExitLoop
         EndIf
-        Out("DP Removal utilisé")
+        Out("DP Removal used")
         Sleep(500)
     WEnd
 
     If Not Party_GetMoraleInfo(-2, "IsMoralePenalty") Then
-        Out("Death Penalty supprimé")
+        Out("Death Penalty removed")
     EndIf
 EndFunc
 
@@ -450,10 +450,10 @@ EndFunc
 Func UseFirstDPRemoval()
     Local $lItemPtr, $lItemID
 
-    For $i = 1 To 4 ; Parcourt les 4 sacs
+    For $i = 1 To 4 ; Loop through 4 bags
         For $j = 1 To Item_GetBagInfo(Item_GetBagPtr($i), "Slots")
             $lItemPtr = Item_GetItemBySlot($i, $j)
-            If $lItemPtr = 0 Then ContinueLoop ; Slot vide
+            If $lItemPtr = 0 Then ContinueLoop ; Empty slot
 
             $lItemID = Item_GetItemInfoByPtr($lItemPtr, "ModelID")
 
@@ -461,47 +461,47 @@ Func UseFirstDPRemoval()
                 If $lItemID = $DPRemoval_Sweets[$ii] Then
                     Item_UseItem($lItemPtr)
                     Sleep(250)
-                    Return True ; Stop après avoir utilisé un item
+                    Return True ; Stop after using an item
                 EndIf
             Next
         Next
     Next
 
-    Return False ; Aucun DP removal trouvé
+    Return False ; No DP removal found
 EndFunc
 
 
-; Calcul distance entre 2 points
+; Calculate distance between 2 points
 Func ComputeDistance($x1, $y1, $x2, $y2)
     Return Sqrt(($x2 - $x1)^2 + ($y2 - $y1)^2)
 EndFunc
 
 ; === Steps system ===
 Global Const $MAX_STEPS = 300
-Global $aSteps[$MAX_STEPS][4] ; tableau des waypoints : Step, X, Y, Mode
-Global $iStepsCount = 0       ; Nombre de steps enregistrés
-Global $iCurrentStep = 0      ; Step actuel
+Global $aSteps[$MAX_STEPS][4] ; waypoints array: Step, X, Y, Mode
+Global $iStepsCount = 0       ; Number of registered steps
+Global $iCurrentStep = 0      ; Current step
 
 Func RegisterStep($step, $x, $y, $mode = "aggro")
     If $iStepsCount < $MAX_STEPS Then
-        $aSteps[$iStepsCount][0] = $step   ; numéro du step
-        $aSteps[$iStepsCount][1] = $x      ; coordonnée X
-        $aSteps[$iStepsCount][2] = $y      ; coordonnée Y
-        $aSteps[$iStepsCount][3] = $mode   ; mode ("move" ou "aggro")
+        $aSteps[$iStepsCount][0] = $step   ; step number
+        $aSteps[$iStepsCount][1] = $x      ; X coordinate
+        $aSteps[$iStepsCount][2] = $y      ; Y coordinate
+        $aSteps[$iStepsCount][3] = $mode   ; mode ("move" or "aggro")
         $iStepsCount += 1
     Else
-        Out("⚠️ Error: too many steps (>" & $MAX_STEPS & ")")
+        Out("Error: too many steps (>" & $MAX_STEPS & ")")
     EndIf
 EndFunc
 
 
-; Tolérance pour identifier un sanctuaire (distance max)
+; Tolerance for identifying a shrine (max distance)
 Global Const $SANCTUAIRE_TOLERANCE = 600
 
 ; [MapID, Step, X, Y]
 Global $aSanctuaires[7][4]
 
-; === Etage 1 ===
+; === Level 1 ===
 $aSanctuaires[0][0] = $iBogrootGrowthsLevel1MapID
 $aSanctuaires[0][1] = 2
 $aSanctuaires[0][2] = 19045.95
@@ -533,7 +533,7 @@ $aSanctuaires[5][1] = 75
 $aSanctuaires[5][2] = 8591
 $aSanctuaires[5][3] = 4285
 
-; === LastStep (toujours étage 2) ===
+; === LastStep (always floor 2) ===
 $aSanctuaires[6][0] = $iBogrootGrowthsLevel2MapID
 $aSanctuaires[6][1] = 94
 $aSanctuaires[6][2] = 19619
@@ -542,7 +542,7 @@ $aSanctuaires[6][3] = -11498
 
 
 Func Party_IsEntirePartyAlive()
-    ; --- Vérifie les héros du joueur ---
+    ; --- Check player's heroes ---
     Local $heroCount = Party_GetMyPartyInfo("ArrayHeroPartyMemberSize")
     For $i = 1 To $heroCount
         Local $agentID = Party_GetMyPartyHeroInfo($i, "AgentID")
@@ -550,7 +550,7 @@ Func Party_IsEntirePartyAlive()
         If Agent_GetAgentInfo($agentID, "IsDead") Then Return False
     Next
 
-    ; --- Vérifie les henchmen ---
+    ; --- Check henchmen ---
     Local $henchCount = Party_GetMyPartyInfo("ArrayHenchmanPartyMemberSize")
     For $i = 1 To $henchCount
         Local $agentID = Party_GetMyPartyHenchmanInfo($i, "AgentID")
@@ -558,7 +558,7 @@ Func Party_IsEntirePartyAlive()
         If Agent_GetAgentInfo($agentID, "IsDead") Then Return False
     Next
 
-    ; --- Si tout est vivant ---
+    ; --- If everyone is alive ---
     Return True
 EndFunc
 
@@ -581,8 +581,8 @@ Func GetNumberOfLockpicks()
 EndFunc
 
 ; ========================================================================
-;  Gestion d’un step unique (avec détection de mort et reprise automatique)
-;  Version corrigée : conversion step->index, pas d'enregistrement multiple
+;  Single step handling (with death detection and automatic resume)
+;  Fixed version: step->index conversion, no multiple registrations
 ; ========================================================================
 
 Global $gAbortCurrentStep = False
@@ -592,14 +592,14 @@ Func DoStep($stepId, $x, $y, $mode="aggro")
 
     Local $bResumedAfterDeath = False
 
-    ; --- Mort détectée avant le move ---
+    ; --- Death detected before move ---
     If Agent_GetAgentInfo(-2,"IsDead") Then
-        Out("💀 Mort détectée à l'étape " & $stepId & " → gestion de la mort...")
+        Out("[DEATH] Death detected at step " & $stepId & " - handling death...")
         $gAbortCurrentStep = False
         HandleDeath($stepId)
 
         If $gAbortCurrentStep Then
-            ConsoleWrite("🛑 Abort current DoStep(" & $stepId & ") - resuming from checkpoint" & @CRLF)
+            ConsoleWrite("[ABORT] Abort current DoStep(" & $stepId & ") - resuming from checkpoint" & @CRLF)
             Return False
         EndIf
 
@@ -607,32 +607,32 @@ Func DoStep($stepId, $x, $y, $mode="aggro")
         While Agent_GetAgentInfo(-2,"IsDead")
             Sleep(1000)
             If TimerDiff($t) > 90000 Then
-                Out("⏰ Timeout : toujours mort après 90s (étape " & $stepId & ")")
+                Out("[TIMEOUT] Still dead after 90s (step " & $stepId & ")")
                 Return False
             EndIf
         WEnd
 
         $bResumedAfterDeath = True
-        Out("✅ Reprise du step " & $stepId & " après résurrection")
+        Out("[OK] Resuming step " & $stepId & " after resurrection")
     EndIf
 
-    ; --- Attendre que tout le groupe soit vivant ---
+    ; --- Wait for entire party to be alive ---
     If Not Party_IsEntirePartyAlive() Then
-        Out("☠️ Un ou plusieurs membres du groupe sont morts → attente de résurrection complète...")
+        Out("[PARTY] One or more party members are dead - waiting for full resurrection...")
         Local $waitParty = TimerInit()
         While Not Party_IsEntirePartyAlive()
             Sleep(1000)
             If TimerDiff($waitParty) > 20000 Then
-                Out("⏰ Timeout : l'équipe n'est pas encore complète après 20s → poursuite forcée.")
+                Out("[TIMEOUT] Party not complete after 20s - forcing continue.")
                 ExitLoop
             EndIf
         WEnd
-        Out("✅ Toute l'équipe est vivante → reprise du déplacement.")
+        Out("[OK] Entire party is alive - resuming movement.")
     EndIf
 
     Local $stepTimer = TimerInit(), $customtimer = 5000
 
-    ; --- Exécution du déplacement ---
+    ; --- Execute movement ---
     Switch $mode
         Case "aggro"
             AggroMoveToEx($x, $y)
@@ -645,14 +645,14 @@ Func DoStep($stepId, $x, $y, $mode="aggro")
     While True
         Sleep(10)
 
-        ; Mort pendant le déplacement
+        ; Death during movement
         If Agent_GetAgentInfo(-2,"IsDead") Then
-            Out("⚰️ Mort détectée pendant le déplacement vers le step " & $stepId & " → gestion de la mort...")
+            Out("[DEATH] Death detected during movement to step " & $stepId & " - handling death...")
             $gAbortCurrentStep = False
             HandleDeath($stepId)
 
             If $gAbortCurrentStep Then
-                ConsoleWrite("🛑 Abort current DoStep(" & $stepId & ") after death - resuming from checkpoint" & @CRLF)
+                ConsoleWrite("[ABORT] Abort current DoStep(" & $stepId & ") after death - resuming from checkpoint" & @CRLF)
                 Return False
             EndIf
 
@@ -660,12 +660,12 @@ Func DoStep($stepId, $x, $y, $mode="aggro")
             While Agent_GetAgentInfo(-2,"IsDead")
                 Sleep(1000)
                 If TimerDiff($wait) > 90000 Then
-                    Out("⏰ Timeout : joueur toujours mort après 90s → abandon du step " & $stepId)
+                    Out("[TIMEOUT] Player still dead after 90s - abandoning step " & $stepId)
                     Return False
                 EndIf
             WEnd
 
-            Out("✅ Reprise du step " & $stepId & " après résurrection")
+            Out("[OK] Resuming step " & $stepId & " after resurrection")
 
             Switch $mode
                 Case "aggro"
@@ -680,34 +680,34 @@ Func DoStep($stepId, $x, $y, $mode="aggro")
             ContinueLoop
         EndIf
 
-        ; Step atteint
+        ; Step reached
         Local $curX = Agent_GetAgentInfo(-2, "X"), $curY = Agent_GetAgentInfo(-2, "Y")
         If ComputeDistance($curX, $curY, $x, $y) < 100 Then
             If Not Party_IsEntirePartyAlive() Then
-                Out("⏸️ Attente : validation du step suspendue, un membre est mort.")
+                Out("[WAIT] Step validation suspended - party member is dead.")
                 Local $tCheck = TimerInit()
                 While Not Party_IsEntirePartyAlive()
                     Sleep(1000)
                     If TimerDiff($tCheck) > 60000 Then
-                        Out("⏰ Timeout : toujours un membre mort après 60s → validation forcée du step.")
+                        Out("[TIMEOUT] Party member still dead after 60s - forcing step validation.")
                         ExitLoop
                     EndIf
                 WEnd
             EndIf
 
-            Out("✅ Step " & $stepId & " atteint (" & $x & "," & $y & ")")
+            Out("[OK] Step " & $stepId & " reached (" & $x & "," & $y & ")")
             $iCurrentStep = $stepId
             Return True
         EndIf
 
-        ; combat => reset timer
+        ; combat => reset timer (enemies nearby)
         If GetNumberOfFoesInRangeOfAgent(-2, 400, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") > 0 Then
             $stepTimer = TimerInit()
             ContinueLoop
         EndIf
 
 ; --------------------------------------------------
-; 🗝️ Opportunistic Chest Opening (Option A)
+; Opportunistic Chest Opening (Option A)
 ; --------------------------------------------------
 If $ChestFarmActive And GUICtrlRead($chkChestFarm) = $GUI_CHECKED Then
     If TimerDiff($gLastChestCheck) > 750 Then
@@ -717,33 +717,33 @@ If $ChestFarmActive And GUICtrlRead($chkChestFarm) = $GUI_CHECKED Then
 EndIf
 
 
-        ; anti-stuck
+        ; anti-stuck check
         If TimerDiff($stepTimer) <= $customtimer Then ContinueLoop
         If Agent_GetAgentInfo(-2, "MoveX") <> 0 Or Agent_GetAgentInfo(-2, "MoveY") <> 0 Then
             $stepTimer = TimerInit()
             ContinueLoop
         EndIf
 
-        ; backtrack intelligent
+        ; intelligent backtrack
         Local $currIndex = _GetStepIndexByID($stepId)
         If $currIndex = -1 Then
-            Out("⚠️ DoStep : stepID " & $stepId & " introuvable dans aSteps.")
+            Out("[WARNING] DoStep: stepID " & $stepId & " not found in aSteps.")
             Return False
         EndIf
 
         Local $prevIndex = $currIndex - 1
         If $prevIndex < 0 Or $prevIndex >= UBound($aSteps) Then
-            Out("⚠️ Aucun step précédent disponible → abandon du backtrack.")
+            Out("[WARNING] No previous step available - abandoning backtrack.")
             Return False
         EndIf
 
         Local $px = $aSteps[$prevIndex][1], $py = $aSteps[$prevIndex][2]
-        Out("↩️ Recul vers le step précédent (step " & $aSteps[$prevIndex][0] & ") : " & $px & "," & $py)
+        Out("[BACKTRACK] Retreating to previous step (step " & $aSteps[$prevIndex][0] & "): " & $px & "," & $py)
         MoveTo($px, $py)
         PickupLoot()
         Sleep(1000)
 
-        Out("🔁 Nouvelle tentative du step " & $stepId)
+        Out("[RETRY] New attempt at step " & $stepId)
         Return DoStep($stepId, $x, $y, $mode)
     WEnd
 
@@ -761,7 +761,7 @@ Func GetNearestSanctStep()
     Local $bestStep = -1, $bestDist = 999999, $bestIdx = -1
 
     If IsDeclared("$bDebugRez") And $bDebugRez Then
-        Out("DEBUG:GetNearestSanctStep - Pos joueur: " & $px & "," & $py & " MapID=" & $curMap)
+        Out("DEBUG:GetNearestSanctStep - Player pos: " & $px & "," & $py & " MapID=" & $curMap)
     EndIf
 
     For $i = 0 To UBound($aSanctuaires) - 1
@@ -787,20 +787,20 @@ Func GetNearestSanctStep()
         EndIf
     Next
 
-    ; Debug safe output — n'accède au tableau que si $bestIdx >= 0
+    ; Debug safe output - only access array if $bestIdx >= 0
     If $bestIdx >= 0 Then
         If IsDeclared("$bDebugRez") And $bDebugRez Then
-            Out(StringFormat("🧭 [DEBUG] Sanctuaire le plus proche → step=%d | map=%d | dist=%.2f | tol=%d", _
+            Out(StringFormat("[DEBUG] Nearest sanctuary -> step=%d | map=%d | dist=%.2f | tol=%d", _
                 $bestStep, $aSanctuaires[$bestIdx][0], $bestDist, $SANCTUAIRE_TOLERANCE))
         EndIf
-        ; Retour conditionnel selon tolérance (comme avant)
+        ; Conditional return based on tolerance
         If $bestDist <= $SANCTUAIRE_TOLERANCE Then
             Return $bestStep
         Else
             Return -1
         EndIf
     Else
-        If IsDeclared("$bDebugRez") And $bDebugRez Then Out("🧭 [DEBUG] Aucun sanctuaire trouvé sur cette map.")
+        If IsDeclared("$bDebugRez") And $bDebugRez Then Out("[DEBUG] No sanctuary found on this map.")
         Return -1
     EndIf
 EndFunc
@@ -813,7 +813,7 @@ Func GetNearestValidStep()
     For $i = 0 To $iStepsCount - 1
         Local $dx = $aSteps[$i][1], $dy = $aSteps[$i][2]
         Local $dist = ComputeDistance($px, $py, $dx, $dy)
-        If $dist < $bestDist And $dist < 2000 Then ; Limite de distance réaliste
+        If $dist < $bestDist And $dist < 2000 Then ; Realistic distance limit
             $bestDist = $dist
             $bestStep = $i
         EndIf
@@ -822,7 +822,7 @@ Func GetNearestValidStep()
 EndFunc
 
 ; ------------------------------------------------------------------------
-;  Fonction utilitaire : récupère l’index dans $aSteps à partir du n° de step logique
+;  Utility function: get index in $aSteps from logical step number
 ; ------------------------------------------------------------------------
 Func _GetStepIndexByID($stepID)
     For $i = 0 To $iStepsCount - 1
@@ -831,8 +831,8 @@ Func _GetStepIndexByID($stepID)
     Return -1
 EndFunc
 
-; Retourne l'index du step (dans $aSteps) le plus proche des coordonnées ($px,$py) sur la map $mapID
-; Renvoie -1 si aucun step valide trouvé.
+; Returns the step index (in $aSteps) closest to coordinates ($px,$py) on map $mapID
+; Returns -1 if no valid step found.
 Func _GetNearestStepIndex($mapID, $px, $py)
     If Not IsArray($aSteps) Then Return -1
     Local $bestIndex = -1
@@ -841,7 +841,7 @@ Func _GetNearestStepIndex($mapID, $px, $py)
     Local $cols = UBound($aSteps, 2)
 
     For $i = 0 To $rows - 1
-        ; Vérifie qu’on a bien assez de colonnes
+        ; Verify we have enough columns
         If $cols <= 4 Then ContinueLoop
 
         Local $stepMap = $aSteps[$i][4]
@@ -873,7 +873,7 @@ Func WaitForStabilization($duration = 6000)
         Sleep(250)
     WEnd
 
-    ; ➕ Vérification post-stabilisation (3 secondes critiques)
+    ; Post-stabilization check (critical 3 seconds)
     Local $tBuffer = TimerInit()
     While TimerDiff($tBuffer) <= 3000
         If Agent_GetAgentInfo(-2, "IsDead") Then Return False
@@ -886,23 +886,23 @@ EndFunc
 
 Func HandleDeath($iLastStepID)
     ; ------------------------------------------------------------
-    ; Attente de résurrection
+    ; Wait for resurrection
     ; ------------------------------------------------------------
     While Agent_GetAgentInfo(-2, "IsDead")
         Sleep(2000)
     WEnd
 
-    Out("💀 Résurrection détectée → attente de stabilisation...")
+    Out("[DEATH] Resurrection detected - waiting for stabilization...")
     If Not WaitForStabilization(6000) Then
-        Out("❌ Nouvelle mort détectée durant la stabilisation — relance HandleDeath()")
+        Out("[ERROR] New death detected during stabilization - restarting HandleDeath()")
         Return HandleDeath($iLastStepID)
     EndIf
-    Out("✅ Résurrection confirmée : aucune mort supplémentaire détectée.")
+    Out("[OK] Resurrection confirmed: no additional deaths detected.")
 
     DPRemoval()
 
     ; ------------------------------------------------------------
-    ; Détection sanctuaire (avec retry)
+    ; Sanctuary detection (with retry)
     ; ------------------------------------------------------------
     Local $iRezSanctStepID = GetNearestSanctStep()
 
@@ -915,44 +915,44 @@ Func HandleDeath($iLastStepID)
     EndIf
 
     ; ============================================================
-    ; CAS 1 : RÉSURRECTION SUR PLACE (APPARENTE)
+    ; CASE 1: ON-SITE RESURRECTION (APPARENT)
     ; ============================================================
     If $iRezSanctStepID = -1 Then
-        Out("⚡ Résurrection sur place → reprise directe sans replay.")
+        Out("[REZ] On-site resurrection - direct resume without replay.")
 
         Local $aPos = GetPlayerXY()
         Local $iNearest = _GetNearestStepIndex(Map_GetMapID(), $aPos[0], $aPos[1])
         If $iNearest < 0 Then $iNearest = 0
         $iCurrentStep = $iNearest
 
-        Out("🔎 Vérification renforcée post-rez...")
+        Out("[CHECK] Enhanced post-rez verification...")
         Sleep(2500)
 
-        ; 🔁 Détection sanctuaire tardive (cas wipe immédiat)
+        ; Late sanctuary detection (immediate wipe case)
         Local $iLate = GetNearestSanctStep()
         If $iLate <> -1 Then
-            Out("📍 Sanctuaire détecté tardivement (step " & $iLate & ") → re-traitement mort")
+            Out("[SANCT] Sanctuary detected late (step " & $iLate & ") - re-processing death")
             Return HandleDeath($iLastStepID)
         EndIf
 
-        ; 🔁 Détection téléportation brutale
+        ; Sudden teleportation detection
         Local $aCurPos = GetPlayerXY()
         Local $aStep = $aSteps[$iCurrentStep]
         Local $fDist = Sqrt(($aCurPos[0] - $aStep[1])^2 + ($aCurPos[1] - $aStep[2])^2)
 
         If $fDist > 3000 Then
-            Out("📍 Téléportation détectée post-rez (" & Int($fDist) & " unités) → re-traitement mort")
+            Out("[TELEPORT] Teleportation detected post-rez (" & Int($fDist) & " units) - re-processing death")
             Return HandleDeath($iLastStepID)
         EndIf
 
-        Out("✅ Rez sur place confirmé comme valide.")
+        Out("[OK] On-site rez confirmed as valid.")
         Return $iCurrentStep
     EndIf
 
     ; ============================================================
-    ; CAS 2 : RÉSURRECTION AU SANCTUAIRE
+    ; CASE 2: RESURRECTION AT SANCTUARY
     ; ============================================================
-    Out("📍 Sanctuaire détecté → step " & $iRezSanctStepID)
+    Out("[SANCT] Sanctuary detected - step " & $iRezSanctStepID)
 
     Local $iResumeIndex = _GetStepIndexByID($iRezSanctStepID)
     If $iResumeIndex < 0 Then $iResumeIndex = 0
@@ -961,12 +961,12 @@ Func HandleDeath($iLastStepID)
     If $iLastIndex < 0 Then $iLastIndex = $iCurrentStep
 
     If $iResumeIndex >= $iLastIndex Then
-        Out("⚠️ Sécurité : resumeIndex >= lastStep → reprise directe à l'index " & $iResumeIndex)
+        Out("[SAFETY] resumeIndex >= lastStep - direct resume at index " & $iResumeIndex)
         $iCurrentStep = $iResumeIndex
         Return $iCurrentStep
     EndIf
 
-    Out("🔁 Rejoue les steps depuis le sanctuaire jusqu’à la mort")
+    Out("[REPLAY] Replaying steps from sanctuary to death location")
     $iCurrentStep = $iResumeIndex
 
     For $i = ($iResumeIndex + 1) To ($iLastIndex - 1)
@@ -974,25 +974,25 @@ Func HandleDeath($iLastStepID)
         Local $x = $aSteps[$i][1]
         Local $y = $aSteps[$i][2]
         Local $mode = $aSteps[$i][3]
-        Out("↪️ Rejoue step " & $stepID & " (" & $mode & ")")
+        Out("[REPLAY] Replaying step " & $stepID & " (" & $mode & ")")
         _MoveByMode($x, $y, $mode)
         Sleep(50)
     Next
 
     Sleep(1000)
     $iCurrentStep = $iLastIndex - 1
-    Out("↪️ Reprise finale au step " & $aSteps[$iCurrentStep][0])
+    Out("[REPLAY] Final resume at step " & $aSteps[$iCurrentStep][0])
 
     ; ------------------------------------------------------------
-    ; Vérification post-reprise
+    ; Post-resume verification
     ; ------------------------------------------------------------
-    Out("🩺 Vérification post-reprise : stabilité...")
+    Out("[CHECK] Post-resume verification: stability...")
     If Not WaitForStabilization(6000) Then
-        Out("💀 Mort détectée après reprise — relance HandleDeath()")
+        Out("[DEATH] Death detected after resume - restarting HandleDeath()")
         Return HandleDeath($iLastStepID)
     EndIf
 
-    Out("✅ Reprise stable confirmée.")
+    Out("[OK] Stable resume confirmed.")
     Return $iCurrentStep
 EndFunc
 
@@ -1022,19 +1022,19 @@ EndFunc
 Func Debug_LogGadgets($aRange = 2000)
 	Local $lPlayerID = Agent_GetMyID()
 	If $lPlayerID = 0 Then
-		Out("❌ Impossible de récupérer l'agent joueur.")
+		Out("[ERROR] Unable to get player agent.")
 		Return
 	EndIf
 
 	Local $lPlayerX = Agent_GetAgentInfo($lPlayerID, "X")
 	Local $lPlayerY = Agent_GetAgentInfo($lPlayerID, "Y")
 
-	Out("🧩 [DEBUG] Liste des gadgets dans un rayon de " & $aRange & " autour du joueur (" & _
+	Out("[DEBUG] List of gadgets within " & $aRange & " range around player (" & _
 		Round($lPlayerX) & ", " & Round($lPlayerY) & ")")
 
 	Local $lAgents = Agent_GetAgentArray($GC_I_AGENT_TYPE_GADGET)
 	If Not IsArray($lAgents) Then
-		Out("❌ Aucun agent trouvé.")
+		Out("[ERROR] No agents found.")
 		Return
 	EndIf
 
@@ -1043,7 +1043,7 @@ Func Debug_LogGadgets($aRange = 2000)
 		Local $ptr = $lAgents[$i]
 		If $ptr = 0 Then ContinueLoop
 
-		Local $modelID = Agent_GetAgentInfo($ptr, "GadgetID") ; ✅ CORRECTION
+		Local $modelID = Agent_GetAgentInfo($ptr, "GadgetID") ; FIXED
 		Local $x = Agent_GetAgentInfo($ptr, "X")
 		Local $y = Agent_GetAgentInfo($ptr, "Y")
 		Local $id = Agent_GetAgentInfo($ptr, "ID")
@@ -1051,12 +1051,12 @@ Func Debug_LogGadgets($aRange = 2000)
 		Local $dist = Sqrt(($lPlayerX - $x)^2 + ($lPlayerY - $y)^2)
 		If $dist <= $aRange Then
 			$visible += 1
-			Out(StringFormat("🔹 Gadget #%d | ID: %d | GadgetID: %d | Pos: (%.0f, %.0f) | Dist: %.0f", _
+			Out(StringFormat("[GADGET] #%d | ID: %d | GadgetID: %d | Pos: (%.0f, %.0f) | Dist: %.0f", _
 				$i, $id, $modelID, $x, $y, $dist))
 		EndIf
 	Next
 
-	Out("📊 Total gadgets visibles dans la zone: " & $visible)
+	Out("[DEBUG] Total visible gadgets in zone: " & $visible)
 EndFunc
 
 
@@ -1069,16 +1069,16 @@ Func Powerup()
             UseConset()
             Out("Activate Cons")
         Else
-            Out("❌ No conset found")
+            Out("[ERROR] No conset found")
         EndIf
     EndIf
 
     ; --- Summoning stone
     If GUICtrlRead($Summon1) = $GUI_CHECKED Then
         If UseSummoningStone() Then
-            ; UseSummoningStone log déjà "✨ Summoning Stone used!"
+            ; UseSummoningStone already logs "Summoning Stone used!"
         Else
-            Out("❌ No summoning stone used")
+            Out("[ERROR] No summoning stone used")
         EndIf
     EndIf
 EndFunc
@@ -1094,16 +1094,16 @@ Func Powerup2()
             UseConset()
             Out("Activate Cons")
         Else
-            Out("❌ No conset found")
+            Out("[ERROR] No conset found")
         EndIf
     EndIf
 
     ; --- Summoning stone
     If GUICtrlRead($Summon2) = $GUI_CHECKED Then
         If UseSummoningStone() Then
-            ; UseSummoningStone log déjà "✨ Summoning Stone used!"
+            ; UseSummoningStone already logs "Summoning Stone used!"
         Else
-            Out("❌ No summoning stone used")
+            Out("[ERROR] No summoning stone used")
         EndIf
     EndIf
 EndFunc
@@ -1167,7 +1167,7 @@ Func GetNumberOfFoesInRangeOfAgent($aAgentID = -2, $aRange = 1200, $aType = $GC_
 EndFunc	;==>GetNumberOfFoesInRangeOfAgent
 
 
-; Cherche la première pierre (ordre inventaire) et renvoie son pointeur
+; Search for first stone (inventory order) and return its pointer
 Func FindSummoningStone()
     Local $lItemPtr, $lItemID
 
@@ -1180,7 +1180,7 @@ Func FindSummoningStone()
 
             For $ii = 0 To UBound($SummoningStone) - 1
                 If $lItemID = $SummoningStone[$ii] Then
-                    Return $lItemPtr ; pointeur réel
+                    Return $lItemPtr ; actual pointer
                 EndIf
             Next
         Next
@@ -1193,20 +1193,20 @@ EndFunc
 Func UseSummoningStone()
     ; Summoning Sickness
     If GetEffectTimeRemainingEx(-2, 2886) <> 0 Then
-        Out("⛔ Summoning Sickness active → pas de pierre utilisable")
+        Out("[BLOCKED] Summoning Sickness active - cannot use stone")
         Return False
     EndIf
 
     Local $stonePtr = FindSummoningStone()
     If $stonePtr = 0 Then
-        Out("❌ No summoning stone found in inventory")
+        Out("[ERROR] No summoning stone found in inventory")
         Return False
     EndIf
 
     Local $mid = Item_GetItemInfoByPtr($stonePtr, "ModelID")
     Local $stoneName = GetSummoningStoneName($mid)
 
-    Out("🪨 Summoning Stone used → " & $stoneName)
+    Out("[SUMMON] Summoning Stone used: " & $stoneName)
 
     Item_UseItem($stonePtr)
     Sleep(250)
@@ -1333,11 +1333,11 @@ EndFunc	;==>GetEnergy
 
 #Region Movement
 ; ======================================================================================================================
-; Fonction : MoveTo()
-; Rôle     : Déplacement vers une position donnée avec correction automatique en cas de blocage réel.
+; Function: MoveTo()
+; Role    : Move to a given position with automatic correction in case of actual blocking.
 ; ======================================================================================================================
 Func MoveTo($aX, $aY, $aRandom = 60, $aTimeout = 30000)
-    ; 🧍 Si le perso est mort → on ne fait rien
+    ; If character is dead - do nothing
     If Agent_GetAgentInfo(-2,"IsDead") Or GetPartyDead() Then Return
 
     Local $lBlocked = 0
@@ -1349,7 +1349,7 @@ Func MoveTo($aX, $aY, $aRandom = 60, $aTimeout = 30000)
     Local $baseDestY = $aY
     Local $lTimer = TimerInit()
 
-    ; 🚶 Premier déplacement (léger aléatoire)
+    ; First movement (slight randomization)
     Local $lDestX = $baseDestX + Random(-$aRandom, $aRandom)
     Local $lDestY = $baseDestY + Random(-$aRandom, $aRandom)
     Map_Move($lDestX, $lDestY, 0)
@@ -1357,24 +1357,24 @@ Func MoveTo($aX, $aY, $aRandom = 60, $aTimeout = 30000)
     Do
         Sleep(100)
 
-        ; ⚰️ Mort → stop
+        ; Death - stop
         If Agent_GetAgentInfo(-2,"IsDead") Or GetPartyDead() Then ExitLoop
 
-        ; 🚪 Changement de map → stop
+        ; Map change - stop
         If Map_GetMapID() <> $lMapStart Then ExitLoop
 
-        ; 🕓 Timeout → forcer un dernier mouvement
+        ; Timeout - force a final movement
         If TimerDiff($lTimer) > $aTimeout Then
-            Out("⚠️ MoveTo timeout reached, forcing move.")
+            Out("[WARNING] MoveTo timeout reached, forcing move.")
             Map_Move($baseDestX, $baseDestY, 50)
             ExitLoop
         EndIf
 
-        ; 🔍 Coordonnées actuelles
+        ; Current coordinates
         $curX = Agent_GetAgentInfo(-2, "X")
         $curY = Agent_GetAgentInfo(-2, "Y")
 
-        ; Vérifie si bloqué
+        ; Check if blocked
         If ComputeDistance($curX, $curY, $lastX, $lastY) < 10 Then
             $lBlocked += 1
             If $lBlocked > 2 Then
@@ -1387,7 +1387,7 @@ Func MoveTo($aX, $aY, $aRandom = 60, $aTimeout = 30000)
             $lBlocked = 0 ; reset
         EndIf
 
-        ; Mise à jour position
+        ; Update position
         $lastX = $curX
         $lastY = $curY
 
@@ -1416,25 +1416,25 @@ Func AggroMoveToEx($x, $y, $s = "", $z = 1200)
     $coords[1] = Agent_GetAgentInfo(-2, 'Y')
 
     Do
-        ; 🧠 Nouvelle vérification : attente du groupe vivant
+        ; Wait for party to be alive before continuing
         If Not Party_IsEntirePartyAlive() Then
-            Out("☠️ Un membre du groupe est mort → attente de résurrection avant de continuer (AggroMoveToEx)")
+            Out("[PARTY] A party member is dead - waiting for resurrection before continuing (AggroMoveToEx)")
             Local $wait = TimerInit()
             While Not Party_IsEntirePartyAlive()
                 Sleep(1000)
                 If TimerDiff($wait) > 60000 Then
-                    Out("⏰ Timeout : toujours un membre mort après 60s → reprise forcée.")
+                    Out("[TIMEOUT] Party member still dead after 60s - forcing resume.")
                     ExitLoop
                 EndIf
             WEnd
-            Out("✅ Groupe complet → reprise du déplacement.")
+            Out("[OK] Party complete - resuming movement.")
         EndIf
 
         If GetPartyDead() Then ExitLoop
         Other_RndSleep(250)
         $oldCoords = $coords
 
-        ; --- Vérification d'ennemis proches ---
+        ; --- Check for nearby enemies ---
         If GetNumberOfFoesInRangeOfAgent(-2, 1200, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter") > 0 Then
             If GetPartyDead() Then ExitLoop
             $enemy = GetNearestEnemyToAgent(-2, 1200, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter")
@@ -1447,7 +1447,7 @@ Func AggroMoveToEx($x, $y, $s = "", $z = 1200)
 
         Other_RndSleep(250)
 
-        ; --- Gestion de blocage / collision ---
+        ; --- Blocking / collision handling ---
         If GetPartyDead() Then ExitLoop
         $coords[0] = Agent_GetAgentInfo(-2, 'X')
         $coords[1] = Agent_GetAgentInfo(-2, 'Y')
@@ -1561,54 +1561,54 @@ Func ResetRun()
 EndFunc ; ==>ResetSteps()
 
 Func HandleTekks($action, $questID = 0x339)
-    ; $action = "take" ou "reward"
+    ; $action = "take" or "reward"
     Global $TekksAgentID = 0  ; Initialize to prevent null pointer access
 
-    ; === Trouver Tekks ===
-    Local $Tekks = GetNearestNPCToAgent(-2, 1320, $GC_I_AGENT_TYPE_LIVING, 1, "NPCFilter") ; Recherche Tekks
+    ; === Find Tekks ===
+    Local $Tekks = GetNearestNPCToAgent(-2, 1320, $GC_I_AGENT_TYPE_LIVING, 1, "NPCFilter") ; Search for Tekks
     If $Tekks > 0 Then
-        ; Récupérer l'ID de Tekks
+        ; Get Tekks ID
         $TekksAgentID = Agent_GetAgentInfo($Tekks, "ID")
         Out("Tekks NPC found with Agent ID: " & $TekksAgentID)
     Else
         $TekksAgentID = 0
         Out("Warning: Could not find Tekks NPC")
-        Return ; Sortie si Tekks n'est pas trouvé
+        Return ; Exit if Tekks not found
     EndIf
 
-    ; === Position Tekks avec léger offset ===
-    Local $offset = 20 ; distance de décalage
+    ; === Tekks position with slight offset ===
+    Local $offset = 20 ; offset distance
     Local $npcX = Agent_GetAgentInfo($Tekks, "X") - $offset
     Local $npcY = Agent_GetAgentInfo($Tekks, "Y") - $offset
 
-    ; === Choix de l'action ===
+    ; === Action selection ===
     If $action = "take" Then
         Out(">>> Going to Tekks to take quest")
         MoveTo($npcX, $npcY)
         Sleep(250)
-        
-        Agent_GoNPC($Tekks) ; Utilisation de l'ID de Tekks
+
+        Agent_GoNPC($Tekks) ; Use Tekks ID
         Sleep(2000)
         Quest_AcceptQuest($questID)
         Sleep(2000)
 
         If Quest_GetQuestInfo($questID, "QuestID") Then
-            Out("Quest accepted at Tekks ✅")
+            Out("[QUEST] Quest accepted at Tekks")
         EndIf
     ElseIf $action = "reward" Then
         Out(">>> Going to Tekks to validate quest")
         MoveTo($npcX, $npcY)
         Sleep(250)
 
-        Agent_GoNPC($Tekks) ; Utilisation de l'ID de Tekks
+        Agent_GoNPC($Tekks) ; Use Tekks ID
         Sleep(2000)
         Quest_QuestReward($questID)
         Sleep(2000)
 
         If Not Quest_GetQuestInfo($questID, "QuestID") Then
-            Out("Quest validated at Tekks 🎉")
+            Out("[QUEST] Quest validated at Tekks")
         EndIf
-    EndIf ; <-- Fermeture du bloc If
+    EndIf ; Close If block
 EndFunc ;==> HandleTekks
 
 
@@ -1616,57 +1616,57 @@ EndFunc ;==> HandleTekks
 
 ; ----------------------------------------------------------------
 ; QuestManager_AfterReload($questID)
-;  - Doit être appelé **après** le reload (Map_GetMapID() == $iSplarkflyMapID)
-;  - Retour : entière (codes)
-;      1  -> la quête n'est plus dans le log (déjà validée en donjon) => on a pris la nouvelle quête (take)
-;      2  -> la quête est présente et peut être validée => on a fait reward (caller doit ensuite faire ReloadQuest->TakeQuestNewRun->Re_Enter)
-;      0  -> état non géré / incomplete / rien fait (sécurité)
-;     -1  -> pas sur Sparkfly (appel invalide)
-;     -2  -> échec de la prise de quête après reward-in-dungeon
+;  - Must be called **after** reload (Map_GetMapID() == $iSplarkflyMapID)
+;  - Return: integer (codes)
+;      1  -> quest no longer in log (already validated in dungeon) => took new quest (take)
+;      2  -> quest is present and can be validated => did reward (caller must then do ReloadQuest->TakeQuestNewRun->Re_Enter)
+;      0  -> unhandled state / incomplete / nothing done (safety)
+;     -1  -> not at Sparkfly (invalid call)
+;     -2  -> quest take failed after reward-in-dungeon
 ; ----------------------------------------------------------------
 Func QuestManager_AfterReload($questID = 0x339)
-    ; Vérifie qu'on est bien à Sparkfly (obligatoire)
+    ; Check that we are at Sparkfly (required)
     If Map_GetMapID() <> $iSplarkflyMapID Then
-        Out("QuestManager_AfterReload: appel annulé — pas sur Sparkfly (MapID=" & Map_GetMapID() & ")")
+        Out("[QUEST] QuestManager_AfterReload: call cancelled - not at Sparkfly (MapID=" & Map_GetMapID() & ")")
         Return -1
     EndIf
 
-    ; Lecture de la présence de la quête dans le log
+    ; Read quest presence in log
     Local $qid = Quest_GetQuestInfo($questID, "QuestID")
 
-    ; --- CAS A : la quête n'est plus dans le log -> elle a été validée en donjon
+    ; --- CASE A: quest no longer in log -> validated in dungeon
     If Not $qid Then
-        Out("QuestManager_AfterReload: quête absente du log -> probablement validée en donjon. On prend la nouvelle quête...")
+        Out("[QUEST] QuestManager_AfterReload: quest absent from log -> probably validated in dungeon. Taking new quest...")
         HandleTekks("take", $questID)
         Sleep(500)
 
-        ; Vérif post-take
+        ; Post-take verification
         If Quest_GetQuestInfo($questID, "IsIncomplete") Then
-            Out("QuestManager_AfterReload: prise de quête confirmée.")
+            Out("[QUEST] QuestManager_AfterReload: quest take confirmed.")
             Return 1
         Else
-            Out("QuestManager_AfterReload: échec lors de la tentative de prise de quête (après reward-in-dungeon).")
+            Out("[QUEST] QuestManager_AfterReload: quest take failed (after reward-in-dungeon).")
             Return -2
         EndIf
     EndIf
 
-    ; --- CAS B : la quête est présente dans le log
+    ; --- CASE B: quest is present in log
     If Quest_GetQuestInfo($questID, "IsCompleted") Then
-        Out("QuestManager_AfterReload: quête présente et rewardable -> on valide la récompense (reward).")
+        Out("[QUEST] QuestManager_AfterReload: quest present and rewardable -> validating reward.")
         HandleTekks("reward", $questID)
         Sleep(500)
 
-        ; Après reward on **ne prend pas** la quête ici (règle: prendre se fait via le flow normal ReloadQuest->TakeQuestNewRun->Re_Enter)
+        ; After reward we **don't take** quest here (rule: take is done via normal flow ReloadQuest->TakeQuestNewRun->Re_Enter)
         Return 2
     EndIf
 
-    ; --- Cas improbable : quête présente mais ni rewardable ni incomplete -> log/état inattendu
+    ; --- Unlikely case: quest present but neither rewardable nor incomplete -> unexpected log/state
     If Quest_GetQuestInfo($questID, "IsIncomplete") Then
-        Out("QuestManager_AfterReload: la quête est encore marquée INCOMPLETE (cas inattendu). Aucune action effectuée.")
+        Out("[QUEST] QuestManager_AfterReload: quest still marked INCOMPLETE (unexpected case). No action taken.")
         Return 0
     EndIf
 
-    Out("QuestManager_AfterReload: état non pris en charge. Rien fait.")
+    Out("[QUEST] QuestManager_AfterReload: unhandled state. Nothing done.")
     Return 0
 EndFunc ;==> QuestManager_AfterReload
 
@@ -1803,7 +1803,7 @@ EndFunc	;==>GetNearestItemToAgent
 
 Func ClearEnemiesInCompass($range = 1700)
 
-    ; Log = nombre d'ennis (pas un ptr)
+    ; Log = enemy count (not a ptr)
     Local $enemyCount = GetAgents(-2, $range, $GC_I_AGENT_TYPE_LIVING, 0, "EnemyFilter")
     Out("Clearing enemies in compass range: " & $enemyCount)
 
@@ -1811,28 +1811,28 @@ Func ClearEnemiesInCompass($range = 1700)
 
     While True
         If Agent_GetAgentInfo(-2, "IsDead") Then
-            Out("⚰️ Player is dead → abort clearing (will retry after rez)")
+            Out("[DEATH] Player is dead - abort clearing (will retry after rez)")
             Return False
         EndIf
 
-        ; Re-check count (optionnel mais utile pour debug)
+        ; Re-check count (optional but useful for debug)
         $enemyCount = GetAgents(-2, $range, $GC_I_AGENT_TYPE_LIVING, 0, "EnemyFilter")
 
-        ; Récupère la cible la plus proche (PTR)
+        ; Get nearest target (PTR)
         Local $enemyPtr = GetNearestEnemyToAgent(-2, $range, $GC_I_AGENT_TYPE_LIVING, 1, "EnemyFilter")
 
         If $enemyPtr = 0 Or $enemyCount = 0 Then
             $clearCount += 1
             If $clearCount >= 3 Then
-                Out("✅ All Enemy Dead")
+                Out("[COMBAT] All enemies dead")
                 Return True
             EndIf
         Else
             $clearCount = 0
 
-            ; Si c’est un boss → annonce
+            ; If it's a boss - announce
             If Agent_GetAgentInfo($enemyPtr, "HasBossGlow") Then
-                Out("🎯 Boss detected : Fight !")
+                Out("[BOSS] Boss detected: Fight!")
             EndIf
 
             Fight($range)
@@ -1845,7 +1845,7 @@ EndFunc
 
 
 
-; Cherche Tekks dans la map courante
+; Search for Tekks in current map
 Func GetTekksID()
     Local $aAgents = Agent_GetAgentArray()
     If Not IsArray($aAgents) Or $aAgents[0] = 0 Then Return 0
@@ -1853,13 +1853,13 @@ Func GetTekksID()
     For $i = 1 To $aAgents[0]
         Local $modelID = Agent_GetAgentInfo($aAgents[$i], "ModelID")
 
-        ; Vérifie si l'agent a le ModelID 6744 (Tekks)
+        ; Check if agent has ModelID 6744 (Tekks)
         If $modelID = 6744 Then
-            Return Agent_GetAgentInfo($aAgents[$i], "ID") ; Retourne l'ID de Tekks
+            Return Agent_GetAgentInfo($aAgents[$i], "ID") ; Return Tekks ID
         EndIf
     Next
 
-    Return 0 ; Tekks non trouvé
+    Return 0 ; Tekks not found
 EndFunc
 
 
@@ -1868,18 +1868,18 @@ EndFunc
 Func DumpAgents()
     Local $aAgents = Agent_GetAgentArray()
 
-    ; Vérification
+    ; Verification
     If Not IsArray($aAgents) Then
-        Out("DumpAgents: Agent_GetAgentArray() n'a pas renvoyé de tableau.")
+        Out("DumpAgents: Agent_GetAgentArray() did not return an array.")
         Return
     EndIf
 
     If $aAgents[0] = 0 Then
-        Out("DumpAgents: aucun agent trouvé.")
+        Out("DumpAgents: no agents found.")
         Return
     EndIf
 
-    ; Boucle sur tous les agents
+    ; Loop through all agents
     For $i = 1 To $aAgents[0]
         Local $id = Agent_GetAgentInfo($aAgents[$i], "ID")
         Local $name = Agent_GetAgentInfo($aAgents[$i], "Name")
@@ -1911,7 +1911,7 @@ Func OpenNearbyChestsFiltered($range = 1800)
     Local $canpickup
     Local $IsThereAChest
 
-    ; --- Scan des coffres ---
+    ; --- Scan for chests ---
     $IsThereAChest = GetNumberOfChestsInRangeOfAgent(-2, $range, $GC_I_AGENT_TYPE_GADGET, 0, "ChestFilter")
  ;   Out("How many Chests are nearby?: " & $IsThereAChest)
     Sleep(16)
@@ -1919,7 +1919,7 @@ Func OpenNearbyChestsFiltered($range = 1800)
     If $IsThereAChest = 0 Then Return False
     If Agent_GetAgentInfo(-2,"IsDead") Then Return False
 
-    ; --- Coffre le plus proche ---
+    ; --- Nearest chest ---
     $chest = GetNearestChestToAgent(-2, $range, $GC_I_AGENT_TYPE_GADGET, 1, "ChestFilter")
     If $chest = 0 Then Return False
 
@@ -1927,40 +1927,40 @@ Func OpenNearbyChestsFiltered($range = 1800)
     $ychest = Agent_GetAgentInfo($chest, "Y")
 
     ; --------------------------------------------------
-    ; ⛔ Skip coffre déjà traité
+    ; Skip already processed chest
     ; --------------------------------------------------
     For $i = 0 To UBound($xChestOldAr) - 1
         If ComputeDistance($xchest, $ychest, $xChestOldAr[$i], $yChestOldAr[$i]) < 120 Then
-            ; coffre déjà tenté → on ignore proprement
+            ; chest already attempted - skip properly
             Return False
         EndIf
     Next
 
     If Agent_GetAgentInfo(-2,"IsDead") Then Return False
 
-    ; --- Aller au coffre ---
+    ; --- Go to chest ---
     Agent_GoSignpost($chest)
     Sleep(250)
     If Agent_GetAgentInfo(-2,"IsDead") Then Return False
 
-    ; --- Tentative d'ouverture ---
+    ; --- Attempt to open ---
     Item_OpenChest()
 	Out("Open Chest")
     Sleep(250)
 
     ; --------------------------------------------------
-    ; ✅ Mémoriser le coffre APRES tentative d'ouverture
+    ; Remember chest AFTER open attempt
     ; --------------------------------------------------
     ReDim $xChestOldAr[UBound($xChestOldAr) + 1]
     ReDim $yChestOldAr[UBound($yChestOldAr) + 1]
     $xChestOldAr[UBound($xChestOldAr) - 1] = $xchest
     $yChestOldAr[UBound($yChestOldAr) - 1] = $ychest
 
-    ; --- Détection du loot ---
+    ; --- Detect loot ---
     $aItemPtr = GetNearestItemToAgent(-2, $range)
     Sleep(16)
 
-    ; --- Pickup si autorisé ---
+    ; --- Pickup if allowed ---
     $canpickup = CanPickUp($aItemPtr)
     Sleep(100)
 
@@ -1975,7 +1975,7 @@ Func OpenNearbyChestsFiltered($range = 1800)
         If Agent_GetAgentInfo(-2,"IsDead") Then Return False
     EndIf
 
-    ; --- Mise à jour des stats ---
+    ; --- Update statistics ---
     UpdateStatistics()
 
     Return True
@@ -3367,10 +3367,10 @@ Func Sell($BagIndex)
         $aItemPtr = Item_GetItemBySlot($BagIndex, $ii)
         If Item_GetItemInfoByPtr($aItemPtr, "ItemID") = 0 Then ContinueLoop
         
-        ; Vérifie si l'item peut être vendu
+        ; Check if item can be sold
         Local $sellable = CanSell($aItemPtr)
-        
-        ; Si l'item est vendable, vendre l'objet
+
+        ; If item is sellable, sell it
         If $sellable Then
             Merchant_SellItem($aItemPtr)
         EndIf
@@ -3411,13 +3411,13 @@ Func CanSell($aItem)
         Return False
     EndIf
 
-    ; Si c'est un objet destiné à une collection, on ne le vend pas
+    ; If it's a collection item, don't sell it
     Switch True
         Case $IsAxeCollect, $IsDaggerCollect, $IsSwordCollect
             Return False
     EndSwitch
 
-    ; Si c'est un objet spécial ou une potion, on ne le vend pas
+    ; If it's a special item or potion, don't sell it
     Switch True
         Case $IsSpecial, $Pcon, $Material, $IsRune, $IsInsignia, $IsTome, $IsEliteTome
             Return False
